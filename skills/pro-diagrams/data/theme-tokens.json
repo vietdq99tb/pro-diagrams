@@ -1,0 +1,119 @@
+{
+  "system_name": "Atelier Technical Warm",
+  "version": "1.0.0",
+  "philosophy": {
+    "core_triad": "Kim tạo cấu trúc · Hỏa tạo dấu ấn · Thổ tạo độ ấm",
+    "rules": [
+      "Mộc đã vượng (49.1%): Không dùng xanh lá làm màu nhận diện chính hay tô nút Start/Process mặc định; chỉ cho phép sắc Ngọc khoáng trầm (#2D6A5B) ở chuỗi dữ liệu thứ cấp hoặc chỉ báo +Delta khi thật sự cần.",
+      "Kim ưu tiên số 1 (0% -> khung kỷ luật): Trắng tinh khiết (#FFFFFF), Xám titan (#4A5860/#526068) và Đá phiến Kim-Thủy (#2B373E) kiến tạo khung chuẩn mực ISO 5807, đường luồng và trục tọa độ.",
+      "Hỏa điểm nhớ (~10%): Gốm nung Terracotta trầm (#AD4333 / nền #FDF1EE) chỉ tập trung vào nút Quyết định (Decision), Đường găng (Critical Path), Cảnh báo ngoại lệ và Chuỗi KPI tiêu điểm.",
+      "Thổ nền ấm (48% sáng + 6% điểm ấm): Nền giấy sứ ấm (#F8F6F2) và Cát hổ phách dịu (#8C5D2B / nền #FAF4EA) khử cảm giác lạnh công nghiệp của xám Kim mà không sa vào nâu đất nặng.",
+      "Thủy lưu thông: Xanh khoáng Kim-Thủy (#395E73 / nền #EDF3F6) đại diện cho luồng dữ liệu vào/ra (Data I/O), Cơ sở dữ liệu (Database) và Hiển thị."
+    ],
+    "visual_ratio_budget": {
+      "warm_light_canvas_and_white": 0.48,
+      "dark_structural_slate_and_ink": 0.24,
+      "technical_metal_neutrals": 0.12,
+      "focal_kiln_terracotta": 0.10,
+      "warm_sand_and_mineral_flow": 0.06
+    }
+  },
+  "typography": {
+    "font_family_primary": "Open Sans",
+    "font_stack_css": "'Open Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    "font_stack_mono": "'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace",
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap",
+    "vietnamese_rules": {
+      "min_node_height_px": 60,
+      "three_line_node_height_px": 76,
+      "line_height_html": 1.42,
+      "char_width_em_sans": 0.617,
+      "char_width_em_mono": 0.62,
+      "max_edge_label_chars_vi": 18,
+      "spacing_top_bottom_px": 6,
+      "spacing_left_right_px": 8
+    }
+  },
+  "themes": {
+    "tech-warm-light": {
+      "mode": "light",
+      "canvas": "#F8F6F2",
+      "surface": "#FFFFFF",
+      "surface_subtle": "#F2EFE9",
+      "ink": "#1C2327",
+      "ink_heading": "#2B373E",
+      "ink_muted": "#526068",
+      "grid_line": "#DCE2E6",
+      "border_subtle": "#C9D2D8",
+      "edge_stroke": "#2B373E",
+      "edge_critical": "#AD4333",
+      "edge_label_bg": "#F8F6F2",
+      "swimlane": {
+        "pool_header_fill": "#2B373E",
+        "pool_header_text": "#FFFFFF",
+        "lane_header_fill": "#E8ECEF",
+        "lane_header_stroke": "#4A5860",
+        "lane_header_text": "#1C2327",
+        "lane_body_even": "#FFFFFF",
+        "lane_body_odd": "#FAF8F5"
+      },
+      "slots": {
+        "neutral":   { "fill": "#FFFFFF", "stroke": "#4A5860", "text": "#1C2327", "contrast_text": 15.92, "contrast_stroke": 6.81 },
+        "primary":   { "fill": "#EEF2F5", "stroke": "#2B373E", "text": "#1C2327", "contrast_text": 14.14, "contrast_stroke": 11.32 },
+        "accent":    { "fill": "#FDF1EE", "stroke": "#AD4333", "text": "#1C2327", "contrast_text": 14.40, "contrast_stroke": 5.36 },
+        "secondary": { "fill": "#EDF3F6", "stroke": "#395E73", "text": "#1C2327", "contrast_text": 14.22, "contrast_stroke": 6.44 },
+        "warning":   { "fill": "#FAF4EA", "stroke": "#8C5D2B", "text": "#1C2327", "contrast_text": 14.55, "contrast_stroke": 5.24 },
+        "danger":    { "fill": "#FCECEB", "stroke": "#9E2F2C", "text": "#1C2327", "contrast_text": 13.90, "contrast_stroke": 6.72 },
+        "success":   { "fill": "#EEF4F1", "stroke": "#2D6A5B", "text": "#1C2327", "contrast_text": 14.29, "contrast_stroke": 5.85 }
+      },
+      "chart_series": [
+        { "id": "focal_terracotta", "hex": "#AD4333", "tint": "#F9DFDA", "label": "Điểm nhấn Hỏa (KPI chính / Mục tiêu)" },
+        { "id": "structural_slate", "hex": "#2B373E", "tint": "#DCE3E8", "label": "Đá phiến Kim-Thủy (Thực tế / Nền tảng)" },
+        { "id": "mineral_water",    "hex": "#395E73", "tint": "#DAE7EE", "label": "Xanh khoáng Thủy (Luồng so sánh 2)" },
+        { "id": "burnished_sand",   "hex": "#8C5D2B", "tint": "#F2E5D2", "label": "Cát hổ phách Thổ (Cơ cấu / Tài nguyên)" },
+        { "id": "titanium_steel",   "hex": "#64737C", "tint": "#E5E9EC", "label": "Xám Titan Kim (Tham chiếu / Kỳ trước)" },
+        { "id": "mineral_sage",     "hex": "#2D6A5B", "tint": "#D9EAE5", "label": "Ngọc khoáng (Biến động dương / Chuỗi 6)" }
+      ]
+    },
+    "tech-warm-dark": {
+      "mode": "dark",
+      "canvas": "#161C20",
+      "surface": "#212A30",
+      "surface_subtle": "#1B2328",
+      "ink": "#F4F2EE",
+      "ink_heading": "#FFFFFF",
+      "ink_muted": "#A8B4BC",
+      "grid_line": "#2C3840",
+      "border_subtle": "#384650",
+      "edge_stroke": "#C4D0D8",
+      "edge_critical": "#E07A68",
+      "edge_label_bg": "#161C20",
+      "swimlane": {
+        "pool_header_fill": "#26333B",
+        "pool_header_text": "#F4F2EE",
+        "lane_header_fill": "#1D262C",
+        "lane_header_stroke": "#8D9CA6",
+        "lane_header_text": "#F4F2EE",
+        "lane_body_even": "#1B2328",
+        "lane_body_odd": "#182025"
+      },
+      "slots": {
+        "neutral":   { "fill": "#212A30", "stroke": "#8D9CA6", "text": "#F4F2EE", "contrast_text": 13.06, "contrast_stroke": 6.09 },
+        "primary":   { "fill": "#26333B", "stroke": "#B8C7D1", "text": "#F4F2EE", "contrast_text": 11.60, "contrast_stroke": 9.93 },
+        "accent":    { "fill": "#382320", "stroke": "#E07A68", "text": "#F4F2EE", "contrast_text": 13.14, "contrast_stroke": 5.86 },
+        "secondary": { "fill": "#1F2F38", "stroke": "#7BA8C2", "text": "#F4F2EE", "contrast_text": 12.34, "contrast_stroke": 6.73 },
+        "warning":   { "fill": "#332B20", "stroke": "#D4AE7A", "text": "#F4F2EE", "contrast_text": 12.46, "contrast_stroke": 8.30 },
+        "danger":    { "fill": "#3B2022", "stroke": "#E57373", "text": "#F4F2EE", "contrast_text": 13.27, "contrast_stroke": 5.76 },
+        "success":   { "fill": "#1E312C", "stroke": "#6EB5A3", "text": "#F4F2EE", "contrast_text": 12.27, "contrast_stroke": 7.21 }
+      },
+      "chart_series": [
+        { "id": "focal_terracotta", "hex": "#E07A68", "tint": "#382320", "label": "Điểm nhấn Hỏa" },
+        { "id": "structural_slate", "hex": "#B8C7D1", "tint": "#26333B", "label": "Đá phiến sáng Kim" },
+        { "id": "mineral_water",    "hex": "#7BA8C2", "tint": "#1F2F38", "label": "Xanh khoáng Thủy" },
+        { "id": "burnished_sand",   "hex": "#D4AE7A", "tint": "#332B20", "label": "Cát hổ phách Thổ" },
+        { "id": "titanium_steel",   "hex": "#8D9CA6", "tint": "#212A30", "label": "Xám Titan Kim" },
+        { "id": "mineral_sage",     "hex": "#6EB5A3", "tint": "#1E312C", "label": "Ngọc khoáng" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,40 @@
+name: CI — Pro. Diagrams Regression Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} (stdlib-only)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify zero bytecode or cache pollution
+        run: |
+          BAD=$(find skills/pro-diagrams \( -name '__pycache__' -o -name '*.pyc' -o -name '.DS_Store' \))
+          if [ -n "$BAD" ]; then
+            echo "Unexpected cache/bloat files found:"
+            echo "$BAD"
+            exit 1
+          fi
+
+      - name: Run 26 stdlib regression & adversarial tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v

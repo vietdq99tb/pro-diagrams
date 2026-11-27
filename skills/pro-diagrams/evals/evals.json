@@ -1,0 +1,47 @@
+{
+  "skill_name": "pro-diagrams",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "eval-1-iso5807-order-retry",
+      "prompt": "Hãy vẽ cho tôi lưu đồ quy trình xử lý thanh toán và xuất hóa đơn điện tử theo chuẩn ISO 5807:1985 bằng tiếng Việt. Quy trình gồm: Bắt đầu → Nhập thông tin đơn hàng & phương thức thanh toán → Khởi tạo biến đếm thử lại k = 0 → Gọi dịch vụ cổng thanh toán định sẵn → Kiểm tra giao dịch thành công? Nếu Không: tăng k = k + 1 rồi kiểm tra k < 3? (Nếu Có thì chờ 5 giây rồi quay lại gọi cổng thanh toán; nếu Không thì hiển thị thông báo lỗi lên màn hình rồi dùng điểm nối cùng trang mã A nhảy tới Kết thúc). Nếu giao dịch thành công: ghi giao dịch vào cơ sở dữ liệu, xuất hóa đơn điện tử dạng chứng từ, rồi tới điểm nối A / Kết thúc. Kèm 1 chú thích (annotation) giải thích SLA cổng thanh toán <= 3 giây. Xuất file có thể chỉnh sửa và file ảnh/SVG xem trước.",
+      "expected_output": "Tệp .drawio chuẩn ISO 5807:1985 (đủ các ký hiệu Terminator, Data, Preparation, Predefined Process, Decision có nhãn nhánh, Delay, Display, Database, Document, cặp On-Page Connector A->A, Annotation) đạt kiểm định 0 lỗi, kèm tệp .svg/.html xem trước dùng font Open Sans và bảng màu Atelier Technical Warm.",
+      "files": [],
+      "expectations": [
+        "Produces an editable uncompressed .drawio XML file alongside a standalone .svg or .html preview",
+        "Uses distinct ISO 5807:1985 shapes for Terminator, Data I/O, Preparation, Predefined Process, Decision, Delay, Display, Database, Document, On-Page Connector, and Annotation",
+        "Every Decision diamond has >= 2 outgoing branches and 100% of Decision branches carry explicit Vietnamese condition labels",
+        "Pairs On-Page Connector 'A' properly (>=1 entry 'A' and 1 exit 'A' to End) and passes ISO 5807 validation with 0 errors",
+        "Applies Open Sans typography and WCAG AA (>= 4.5:1) Atelier Technical Warm palette without traffic-light green clutter"
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "eval-2-swimlane-rd-procurement",
+      "prompt": "Vẽ sơ đồ quy trình liên phòng ban (Swimlane) bằng tiếng Việt cho quy trình Đề xuất & Phê duyệt Mua sắm Thiết bị R&D qua 4 bộ phận: Bộ phận R&D, Phòng Mua hàng, Phòng Tài chính - Kế toán, và Ban Giám đốc (khoảng 14-16 bước, phân biệt rõ bước nhập liệu/thao tác thủ công, xử lý hệ thống, cơ sở dữ liệu ERP, chứng từ báo giá/hợp đồng và ít nhất 2 nút rẽ nhánh quyết định ngân sách <= 100 triệu & nghiệm thu kỹ thuật đạt/không đạt). Tôi cần cả file gốc chỉnh sửa kéo-thả được, bản xem trước SVG/HTML và một trang hướng dẫn vận hành SOP tương tác từng bước (runbook) cho nhân viên mới.",
+      "expected_output": "Tệp .drawio Swimlane 4 làn chuẩn ký hiệu ISO 5807 (14-16 nút, >=2 Decision có nhãn đầy đủ), tệp .svg và .html xem trước, cùng trang SOP Runbook tương tác bấm-chọn từng bước.",
+      "files": [],
+      "expectations": [
+        "Produces an editable .drawio file with 4 department Swimlanes (R&D, Mua hàng, Tài chính - Kế toán, Ban Giám đốc) and >= 14 flow steps",
+        "Generates both a standalone .svg/.html diagram preview AND an interactive click-through SOP Runbook HTML file",
+        "Differentiates manual steps, automated processes, database, documents, and >= 2 labeled Decision diamonds per ISO 5807:1985",
+        "Passes structural & ISO 5807 validation with 0 errors",
+        "Applies Open Sans Vietnamese typography and WCAG AA Atelier Technical Warm color hierarchy"
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "eval-3-dual-track-cpm-and-kpi",
+      "prompt": "Dự án nâng cấp nền tảng dữ liệu của tôi cần 2 hình trực quan tiếng Việt đồng bộ phong cách để đưa vào báo cáo: (1) Đồ thị mạng phụ thuộc & đường găng (CPM) gồm 7 công việc: A-Khảo sát (3 ngày), B-Thiết kế kiến trúc (4 ngày, sau A), C-Chuẩn bị hạ tầng (2 ngày, sau A), D-Xây dựng pipeline lõi (6 ngày, sau B), E-Thiết lập bảo mật (4 ngày, sau C), F-Kiểm thử tích hợp (3 ngày, sau D và E), G-Chuyển giao vận hành (2 ngày, sau F) — hãy tính ES/EF/LS/LF/TF và tô nổi bật đường găng. (2) Biểu đồ thác nước (Waterfall chart) phân tích biến động chi phí vận hành năm 2026 (đơn vị: triệu đồng): Chi phí 2025 = 850, Tăng quy mô dữ liệu = +210, Tối ưu lưu trữ lạnh = -145, Tự động hóa vận hành = -95, Chi phí bản quyền mới = +40, chốt Tổng chi phí 2026 = 860. Xuất đầy đủ các file SVG/HTML/sơ đồ gốc.",
+      "expected_output": "Đồ thị CPM (.drawio + .svg) tính đúng tổng 18 ngày và tô nổi đường găng A->B->D->F->G (TF=0), kèm Biểu đồ Waterfall (.html gắn data-* trung thực + .svg sạch) đồng bộ bảng màu Atelier Technical Warm và font Open Sans.",
+      "files": [],
+      "expectations": [
+        "Produces both a CPM network diagram (.drawio + .svg) AND a Waterfall quantitative chart (.html + .svg)",
+        "Computes exact CPM duration = 18 days and identifies critical path A -> B -> D -> F -> G (TF=0) vs non-critical C, E (TF=4)",
+        "Visually highlights the Critical Path (TF = 0) with focal accent styling distinct from slack tasks",
+        "Waterfall chart preserves exact cumulative arithmetic (850 + 210 - 145 - 95 + 40 = 860) with proportional bar geometry",
+        "Unifies both deliverables under Open Sans typography and WCAG AA Atelier Technical Warm styling"
+      ]
+    }
+  ]
+}

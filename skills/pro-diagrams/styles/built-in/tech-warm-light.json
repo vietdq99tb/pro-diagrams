@@ -1,0 +1,60 @@
+{
+  "$schema": "../schema.json",
+  "name": "tech-warm-light",
+  "version": 1,
+  "default": true,
+  "confidence": "high",
+  "source": {
+    "type": "hand-authored",
+    "extracted_at": "2026-11-24"
+  },
+  "palette": {
+    "neutral":   { "fillColor": "#FFFFFF", "strokeColor": "#4A5860" },
+    "primary":   { "fillColor": "#EEF2F5", "strokeColor": "#2B373E" },
+    "accent":    { "fillColor": "#FDF1EE", "strokeColor": "#AD4333" },
+    "secondary": { "fillColor": "#EDF3F6", "strokeColor": "#395E73" },
+    "warning":   { "fillColor": "#FAF4EA", "strokeColor": "#8C5D2B" },
+    "danger":    { "fillColor": "#FCECEB", "strokeColor": "#9E2F2C" },
+    "success":   { "fillColor": "#EEF4F1", "strokeColor": "#2D6A5B" }
+  },
+  "roles": {
+    "service":  "neutral",
+    "database": "secondary",
+    "queue":    "warning",
+    "gateway":  "accent",
+    "error":    "danger",
+    "external": "primary",
+    "security": "secondary"
+  },
+  "shapes": {
+    "service":     "rounded=0;whiteSpace=wrap;html=1;",
+    "terminator":  "shape=mxgraph.flowchart.terminator;whiteSpace=wrap;html=1;",
+    "decision":    "shape=mxgraph.flowchart.decision;whiteSpace=wrap;html=1;",
+    "io":          "shape=parallelogram;perimeter=parallelogramPerimeter;size=0.16;whiteSpace=wrap;html=1;",
+    "subroutine":  "shape=process;whiteSpace=wrap;rounded=0;size=0.12;html=1;",
+    "document":    "shape=mxgraph.flowchart.document2;whiteSpace=wrap;html=1;size=0.22;",
+    "database":    "shape=mxgraph.flowchart.database;whiteSpace=wrap;html=1;",
+    "preparation": "shape=hexagon;perimeter=hexagonPerimeter2;size=0.20;whiteSpace=wrap;html=1;",
+    "manual_op":   "shape=trapezoid;perimeter=trapezoidPerimeter;size=0.16;whiteSpace=wrap;html=1;flipV=1;",
+    "external":    "rounded=0;dashed=1;whiteSpace=wrap;html=1;",
+    "container":   "swimlane;startSize=36;whiteSpace=wrap;html=1;"
+  },
+  "font": {
+    "fontFamily": "Open Sans",
+    "fontSize": 12,
+    "titleFontSize": 14,
+    "titleBold": true
+  },
+  "edges": {
+    "style": "edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1",
+    "arrow": "endArrow=block;endFill=1;endSize=7",
+    "dashedFor": ["annotation", "optional", "async"]
+  },
+  "extras": {
+    "sketch": false,
+    "globalStrokeWidth": 1.5,
+    "background": "#F8F6F2",
+    "fontColor": "#1C2327",
+    "edgeColor": "#2B373E"
+  }
+}
