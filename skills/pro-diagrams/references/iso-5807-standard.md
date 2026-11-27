@@ -1,108 +1,143 @@
-# Chuẩn Lưu Đồ Quy Trình ISO 5807:1985 & Quy Trình Kiểm Định
+# Chuẩn Sơ Đồ Xử Lý Thông Tin ISO 5807:1985 (§4–§11) & Quy Trình Kiểm Định
 
-Tài liệu này quy định cách xây dựng, kết xuất và kiểm định lưu đồ thuật toán / quy trình nghiệp vụ tuân thủ nghiêm ngặt **ISO 5807:1985**.
+Tài liệu này quy định cách chọn đúng loại sơ đồ theo **ISO 5807:1985 (§4–§8)**, khai báo đầy đủ **26 ký hiệu nút + 4 loại đường nối (§9 & §11)**, và kiểm định tự động tách bạch giữa **tuân thủ ISO 5807** với **cảnh báo bố cục / tương phản WCAG AA**.
 
 ---
 
-## 1. Danh Mục Ký Hiệu Chuẩn ISO 5807:1985 (`data/iso5807-shapes.json`)
+## 1. Chọn Đúng 5 Loại Sơ Đồ Chuẩn ISO 5807:1985 (§4–§8)
 
-Khi dùng `scripts/iso5807_builder.py`, khai báo trường `"type"` của từng nút theo đúng bảng sau (trình biên dịch sẽ **từ chối và báo lỗi ngay** nếu gõ sai tên `type`, trỏ cạnh tới ID không tồn tại, hoặc gán sai ID làn Swimlane):
+Trước khi viết JSON và kiểm định, xác định đúng trường `"kind"` tương ứng mục tiêu sơ đồ (trình biên dịch ghi thuộc tính `isoDiagramType` vào `<mxGraphModel>` để `validate_iso5807.py` tự động áp dụng đúng bộ quy tắc theo loại sơ đồ):
 
-| `type` trong JSON | Tên & Điều khoản ISO 5807:1985 | Ký hiệu hình học | Khi nào sử dụng |
+| `"kind"` trong JSON | Loại sơ đồ & Điều khoản ISO 5807:1985 | Ví dụ Phụ lục chuẩn | Quy tắc kiểm định đầu vào / đầu ra đặc trưng |
 |---|---|---|---|
-| `terminator` | Terminator (`§9.4.2`) | Viên thuốc / Stadium | Điểm **Bắt đầu** (`in=0, out>=1`) và **Kết thúc** (`in>=1, out=0`). |
-| `process` | Process (`§9.2.1`) | Hình chữ nhật vuông góc | Bước xử lý, tính toán, nghiệp vụ cụ thể. |
-| `decision` | Decision (`§9.2.2.4` & `§10.3.1`) | Hình thoi (`diamond`) | Kiểm tra điều kiện rẽ nhánh: **duy nhất 1 lối vào (`in=1`)** và **≥ 2 lối ra**, 100% nhánh phải có nhãn điều kiện. |
-| `data` | Data (`§9.1.1.1`) | Hình bình hành | Nhập dữ liệu đầu vào hoặc xuất kết quả đầu ra không phụ thuộc môi trường vật lý. |
-| `predefined_process` | Predefined Process (`§9.2.2.1`) | Chữ nhật có 2 vạch dọc | Gọi quy trình con / module / hàm đã định nghĩa riêng. |
-| `document` | Document (`§9.1.2.4`) | Chữ nhật đáy lượn sóng | Tạo/xuất một biểu mẫu, biên bản, báo cáo, hóa đơn. |
-| `multi_document` | Multi-Document (`§9.1.2.4` & `§10.3.2`) | Tập tài liệu xếp lớp | Bộ hồ sơ gồm nhiều chứng từ đi kèm nhau (biểu diễn lặp lại `§10.3.2`). |
-| `database` | Direct Access Storage / DB (`§9.1.2.3`) | Hình trụ đứng | Đọc/ghi cơ sở dữ liệu hoặc đĩa từ truy cập trực tiếp. |
-| `direct_data` | Direct Access Storage (`§9.1.2.3`) | Hình trụ ngang | Bộ nhớ truy cập trực tiếp (cache, key-value, SSD store). |
-| `stored_data` | Stored Data (`§9.1.1.2`) | Hình cong lồi–lõm | Kho tệp tin / dữ liệu lưu trữ chung. |
-| `sequential_data` | Sequential Access Storage (`§9.1.2.2`) | Hình tròn có đuôi ngang | Ghi log tuần tự, băng từ, hàng đợi sự kiện nối tiếp. |
-| `internal_storage` | Internal Storage (`§9.1.2.1`) | Chữ nhật kẻ ô góc trái | Cấu trúc dữ liệu / biến trong RAM. |
-| `preparation` | Preparation (`§9.2.2.3`) | Hình lục giác dẹt | Khởi tạo biến, thiết lập tham số hoặc bộ đếm vòng lặp. |
-| `manual_operation` | Manual Operation (`§9.2.2.2`) | Hình thang cân đáy nhỏ dưới | Thao tác thủ công của con người (kiểm hàng, ký tay). |
-| `manual_input` | Manual Input (`§9.1.2.5`) | Tứ giác cạnh trên vát nghiêng | Người dùng nhập liệu qua bàn phím / form / máy quét. |
-| `on_page_connector` | Connector (`§9.4.1` & `§10.2.2`) | Hình tròn nhỏ (44×44) | Điểm nối cùng trang tránh cắt dây — **bắt buộc đi theo cặp cùng mã** (`A` vào → `A` ra). |
-| `off_page_connector` | Off-Page Connector *(mở rộng ANSI X3.5)* | Ngũ giác mũi nhọn dưới | Chuyển luồng sang trang khác (ghi rõ mã & số trang; ISO 5807 gốc dùng hình tròn `§9.4.1` kèm mô tả trang `§10.2.2`). |
-| `loop_limit_start` / `loop_limit_end` | Loop Limit (`§9.2.2.6`) | Lục giác vát 2 góc trên / dưới | Mở và đóng khối lặp (phải cân bằng số lượng mở/đóng). |
-| `delay` | Delay *(mở rộng ANSI / ASME)* | Hình chữ D | Chờ phê duyệt, timeout, chờ batch định kỳ (ký hiệu mở rộng ngoài ISO 5807:1985). |
-| `display` | Display (`§9.1.2.8`) | Đầu nhọn trái, cong phải | Hiển thị thông báo/cảnh báo lên màn hình. |
-| `parallel_mode` | Parallel Mode (`§9.2.2.5`) | Cặp hai vạch ngang song song | Tách (fork) hoặc đồng bộ gom (join) các nhánh chạy song song. |
-| `annotation` | Annotation (`§9.4.3`) | Ngoặc vuông mở `[` + dây đứt | Ghi chú giải thích gắn vào một nút qua trường `"attach_to"`. |
+| `data-flowchart` | **Data Flowchart** (Lưu đồ dữ liệu, `§4`) | Phụ lục **A** | Chấp nhận ký hiệu **dữ liệu / chứng từ** (`document`, `multi_document`, `data`, lưu trữ...) ở điểm bắt đầu và kết thúc (không bắt buộc `Terminator`). Cho phép bước `manual_operation` lưu hồ sơ cuối nhánh; cấm bước `process` tự động bị cụt. |
+| `program-flowchart` *(hoặc `iso5807-flowchart`)* | **Program Flowchart** (Lưu đồ chương trình / thuật toán, `§5`) | Phụ lục **B(a), B(b)** | Yêu cầu `Terminator` Bắt đầu & Kết thúc (hoặc nối tiếp qua trang bằng `Connector` §10.2.2), kiểm tra chặt `Decision` 1 lối vào + nhãn nhánh, ghép cặp `Loop Limit` theo mã `loop_id`. |
+| `system-flowchart` | **System Flowchart** (Lưu đồ hệ thống, `§6`) | Phụ lục **C** | **Phân biệt luồng điều khiển và luồng dữ liệu/vật mang**: `manual_input`, `direct_data`, `display`, `document` (hóa đơn/màn hình) ở đầu vào hoặc đầu ra của bước xử lý không bị báo nhầm là nút cô lập (`W-ISO-ORPHAN`) hay nhánh cụt (`E-ISO-END`). Hỗ trợ đường 2 chiều đọc/ghi (`bidirectional: true`). |
+| `program-network` | **Program Network Chart** (Mạng chương trình, `§7`) | Phụ lục **D** | Không bắt buộc `Terminator`; yêu cầu đơn vị chương trình kết nối không cô lập, hỗ trợ đường **Chuyển điều khiển (`role: "control_transfer"`)** mang tam giác mã `P`, `T`, `I` (`§9.3.2.1`), `Connector` ghép cặp (`Z`) và đường 2 chiều. |
+| `system-resources` | **System Resources Chart** (Sơ đồ tài nguyên hệ thống, `§8`) | Phụ lục **E** | Không bắt buộc `Terminator`; yêu cầu có cả đơn vị xử lý và đơn vị dữ liệu/lưu trữ kết nối nhau (`E-ISO-RESOURCES`), hỗ trợ đường 2 chiều đọc/ghi (`bidirectional: true`) và cụm tài liệu chồng lớp có nhãn riêng (`§10.3.2`). |
+| `swimlane` | **Swimlane ISO 5807 cho SOP liên phòng ban** | SOP vận hành | Áp dụng bộ quy tắc lưu đồ chuẩn ISO 5807 kết hợp kiểm tra làn (`lanes`), tự động chuẩn hóa khoảng trắng thừa quanh `id` làn và cấm đường nối chạy đè vạch làn (`W-ISO-SWIMLANE-CROSS`). |
 
 ---
 
-## 2. Mẫu JSON Spec Cho `scripts/iso5807_builder.py`
+## 2. Danh Mục 26 Ký Hiệu Nút (`data/iso5807-shapes.json`) & Phân Loại Theo §11
+
+Khi dùng `scripts/iso5807_builder.py`, khai báo `"type"` theo đúng bảng sau (trình biên dịch sẽ **từ chối và báo lỗi rõ trường sai** nếu gõ sai `type`, trỏ cạnh tới ID không tồn tại, hoặc trùng/sai ID làn):
+
+| `type` trong JSON | Tên & Điều khoản ISO 5807:1985 | Nhóm (§11) | Loại sơ đồ phù hợp (§4–§8) | Khi nào sử dụng |
+|---|---|---|---|---|
+| `data` | Data (`§9.1.1.1`) | Dữ liệu | A, B, C, D, E | Nhập/xuất dữ liệu tổng quát không phụ thuộc môi trường vật lý (hình bình hành). |
+| `stored_data` | Stored Data (`§9.1.1.2`) | Dữ liệu | A, C, D, E | Kho tệp tin / dữ liệu lưu trữ chung (hình cong lồi–lõm). |
+| `internal_storage` | Internal Storage (`§9.1.2.1`) | Dữ liệu | A, C, D, E | Biến / cấu trúc dữ liệu trong bộ nhớ RAM. |
+| `sequential_data` | Sequential Access Storage (`§9.1.2.2`) | Dữ liệu | A, C, D, E | Tệp tuần tự, băng từ, event log chỉ ghi nối tiếp. |
+| `database` | Direct Access Storage / DB (`§9.1.2.3`) | Dữ liệu | A, C, D, E | Cơ sở dữ liệu / đĩa từ truy cập trực tiếp (hình trụ đứng). |
+| `direct_data` | Direct Access Storage (`§9.1.2.3`) | Dữ liệu | A, C, D, E | Bộ nhớ truy cập trực tiếp (hình trụ ngang: đĩa từ, cache, SSD). |
+| `document` | Document (`§9.1.2.4`) | Dữ liệu | A, C, D, E | Một chứng từ, biểu mẫu, biên bản, báo cáo, hóa đơn. |
+| `multi_document` | Multi-Document (`§9.1.2.4` & `§10.3.2`) | Dữ liệu | A, C, D, E | Cụm nhiều chứng từ xếp lớp. Hỗ trợ mảng `"items": ["Chứng từ 1", "Chứng từ 2"]` để gắn nhãn riêng cho từng lớp theo `§10.3.2`. |
+| `manual_input` | Manual Input (`§9.1.2.5`) | Dữ liệu | A, C, D, E | Người dùng nhập liệu qua bàn phím, biểu mẫu, máy quét. |
+| `card` | Card (`§9.1.2.6`) | Dữ liệu | A, C, D, E | Dữ liệu mang trên thẻ đục lỗ, thẻ từ, thẻ thông minh hoặc thẻ vật lý. |
+| `paper_tape` *(alias `punched_tape`)* | Punched / Paper Tape (`§9.1.2.7`) | Dữ liệu | A, C, D, E | Dữ liệu lưu trên băng giấy đục lỗ / băng ghi vật lý (đỉnh & đáy lượn sóng). |
+| `display` | Display (`§9.1.2.8`) | Dữ liệu | A, C, D, E | Hiển thị thông tin, kết quả tra cứu, cảnh báo lên màn hình. |
+| `process` | Process (`§9.2.1`) | Xử lý | A, B, C, D, E | Bước xử lý, tính toán, chương trình hoặc thao tác nghiệp vụ cụ thể. |
+| `predefined_process` | Predefined Process (`§9.2.2.1`) | Xử lý | B, C, D | Gọi quy trình con / module / hàm đã định nghĩa riêng. |
+| `manual_operation` | Manual Operation (`§9.2.2.2`) | Xử lý | A, C, E | Thao tác thủ công của con người (kiểm đếm, ký tay, lưu hồ sơ). |
+| `preparation` | Preparation (`§9.2.2.3`) | Xử lý | B, C | Khởi tạo biến, thiết lập tham số hoặc chuẩn bị môi trường. |
+| `decision` | Decision (`§9.2.2.4` & `§10.3.1`) | Xử lý | B, C | Kiểm tra rẽ nhánh: **duy nhất 1 lối vào (`in=1`)**, **≥ 2 lối ra**, 100% nhánh có nhãn. Hỗ trợ rẽ nhiều nhánh (ví dụ 5 nhánh) qua thân chung `"branch_style": "stem"` (tự bật khi `> 3` nhánh tiến theo `§10.3.1(b)`). |
+| `parallel_mode` | Parallel Mode (`§9.2.2.5`) | Xử lý | B, C | Hai vạch ngang song song đánh dấu tách (`fork`) hoặc đồng bộ gom (`join`). |
+| `loop_limit_start` / `loop_limit_end` | Loop Limit (`§9.2.2.6`) | Xử lý | B | Mở và đóng khối lặp. Khai báo `"loop_id": "L"` (hoặc đặt mã ở dòng đầu nút mở và dòng đầu/cuối nút đóng); validator kiểm tra khớp từng mã riêng kể cả vòng lồng nhau. |
+| `on_page_connector` | Connector (`§9.4.1` & `§10.2.2`) | Đặc biệt | A, B, C, D, E | Nút tròn nhỏ ghép cặp theo mã (`A` → `A` cùng trang hoặc `λ1` xuyên trang kèm `"ref_page": "3.2"` và chú thích `"Đến trang 3.2"` / `"Từ trang 1.4"`). |
+| `terminator` | Terminator (`§9.4.2`) | Đặc biệt | A, B, C | Điểm **Bắt đầu** (`in=0, out>=1`) và **Kết thúc** (`in>=1, out=0`) dạng viên thuốc. |
+| `annotation` | Annotation (`§9.4.3`) | Đặc biệt | A, B, C, D, E | Chú thích mở ngoặc `[` + dây đứt không mũi tên gắn qua `"attach_to"`. |
+| `ellipsis` | Ellipsis (`§9.4.4`) | Đặc biệt | A, B, C, D, E | Ba dấu chấm `• • •` biểu thị bỏ lược các ký hiệu lặp lại không cần vẽ chi tiết. |
+| `delay` | **Delay *(Ký hiệu mở rộng ngoài ISO 5807:1985)*** | Mở rộng ANSI/ASME | SOP thực hành | Khoảng chờ bắt buộc (timeout, SLA duyệt, batch đêm). **Lưu ý:** trường `"duration"` trên nút SOP chỉ dùng tính đường găng CPM khi `kind: "cpm"` hoặc `"compute_cpm": true`. |
+| `off_page_connector` | **Off-Page Connector *(Ký hiệu mở rộng ANSI X3.5 ngoài ISO 5807:1985)*** | Mở rộng ANSI X3.5 | SOP thực hành | Ngũ giác chuyển trang (ISO 5807:1985 gốc dùng `on_page_connector` hình tròn kèm tham chiếu trang theo `§9.4.1 & §10.2.2`). |
+
+---
+
+## 3. Danh Mục 4 Loại Đường Nối Chuẩn ISO 5807:1985 (§9.3)
+
+| Thuộc tính cạnh trong JSON | Điều khoản ISO 5807:1985 | Biểu diễn `.drawio` & `.svg` | Ứng dụng điển hình |
+|---|---|---|---|
+| *(mặc định)* `arrows: "end"` | Flowline (`§9.3.1`) | Đường liền 1 đầu mũi tên (`endArrow=block`) | Luồng điều khiển và luồng dữ liệu một chiều. |
+| `bidirectional: true` *(hoặc `arrows: "both"`)* | Bidirectional Flowline (`§9.3.1` & `§10.2.1`) | Một đường duy nhất có **2 đầu mũi tên** (`startArrow=block;endArrow=block;`) | Quan hệ đọc/ghi tệp trực tiếp trong Lưu đồ hệ thống (**C**), Mạng chương trình (**D**) và Tài nguyên hệ thống (**E**). |
+| `role: "control_transfer"`, `label: "P" \| "T" \| "I"` | Control Transfer (`§9.3.2.1`) | Đường liền mang **tam giác định hướng chứa mã `P`, `T`, `I`** (`isoLine=control_transfer`) | Kích hoạt / chuyển điều khiển chương trình trong Phụ lục **D** (`program-network`). |
+| `role: "communication_link"` | Communication Link (`§9.3.2.2`) | Đường gấp khúc tia chớp (`isoLine=communication_link`) | Truyền dữ liệu qua kênh viễn thông / mạng. |
+| `role: "alternative"` *(hoặc `dashed: true`)* | Alternative / Dashed Path (`§9.3.2.3`) | Đường nét đứt (`dashed=1`) | Nhánh lựa chọn phụ hoặc mối liên hệ không thường trực. |
+
+### Cấu trúc Sơ Đồ Nhiều Trang (`"pages": [...]`) Với Connector Xuyên Trang (§10.2.2)
 
 ```json
 {
-  "kind": "iso5807-flowchart",
-  "direction": "TB",
-  "preset": "tech-warm-light",
-  "title": "Quy trình Kiểm tra & Xử lý Đơn hàng (ISO 5807:1985)",
-  "subtitle": "SOP-ORD-01 · Phiên bản 2.0",
-  "nodes": [
-    { "id": "start", "type": "terminator", "label": "Bắt đầu" },
-    { "id": "in_order", "type": "data", "label": "Nhận dữ liệu đơn hàng" },
-    { "id": "prep", "type": "preparation", "label": "Khởi tạo bộ đếm thử lại k = 0" },
-    { "id": "sub_verify", "type": "predefined_process", "label": "Gọi dịch vụ xác thực tồn kho & hạn mức" },
-    { "id": "dec_valid", "type": "decision", "label": "Đơn hàng hợp lệ?" },
-    { "id": "db_save", "type": "database", "label": "Ghi nhận đơn vào CSDL ERP" },
-    { "id": "doc_inv", "type": "document", "label": "Xuất phiếu xuất kho & hóa đơn" },
-    { "id": "conn_a_in", "type": "on_page_connector", "label": "A" },
-    { "id": "conn_a_out", "type": "on_page_connector", "label": "A" },
-    { "id": "end", "type": "terminator", "label": "Kết thúc" },
-    { "id": "note1", "type": "annotation", "attach_to": "sub_verify", "label": "SLA phản hồi <= 2 giây;\nkiểm tra đồng thời 2 kho" }
-  ],
-  "edges": [
-    { "from": "start", "to": "in_order" },
-    { "from": "in_order", "to": "prep" },
-    { "from": "prep", "to": "sub_verify" },
-    { "from": "sub_verify", "to": "dec_valid" },
-    { "from": "dec_valid", "to": "db_save", "label": "Có" },
-    { "from": "dec_valid", "to": "conn_a_in", "label": "Không", "role": "error" },
-    { "from": "db_save", "to": "doc_inv" },
-    { "from": "doc_inv", "to": "end" },
-    { "from": "conn_a_out", "to": "end" }
+  "kind": "program-flowchart",
+  "pages": [
+    {
+      "page_name": "1.4",
+      "title": "Trang 1.4",
+      "nodes": [
+        { "id": "start", "type": "terminator", "label": "Bắt đầu" },
+        { "id": "p1", "type": "process", "label": "Xử lý bước 1" },
+        { "id": "c_out", "type": "on_page_connector", "label": "λ1", "ref_page": "3.2" },
+        { "id": "n1", "type": "annotation", "attach_to": "c_out", "label": "Đến trang 3.2" }
+      ],
+      "edges": [
+        { "from": "start", "to": "p1" },
+        { "from": "p1", "to": "c_out" }
+      ]
+    },
+    {
+      "page_name": "3.2",
+      "title": "Trang 3.2",
+      "nodes": [
+        { "id": "c_in", "type": "on_page_connector", "label": "λ1", "ref_page": "1.4" },
+        { "id": "p2", "type": "process", "label": "Xử lý bước 2" },
+        { "id": "finish", "type": "terminator", "label": "Kết thúc" },
+        { "id": "n2", "type": "annotation", "attach_to": "c_in", "label": "Từ trang 1.4" }
+      ],
+      "edges": [
+        { "from": "c_in", "to": "p2" },
+        { "from": "p2", "to": "finish" }
+      ]
+    }
   ]
 }
 ```
 
 ---
 
-## 3. Quy Trình Biên Dịch, Dàn Cổng, Kiểm Định & Xuất Bản (Tối Đa 2 Vòng Tự Sửa)
-
-Chạy tuần tự các lệnh sau:
+## 4. Quy Trình Biên Dịch, Kiểm Định & Tách Bạch Kết Quả (`validate_iso5807.py`)
 
 ```bash
-# 1. Biên dịch từ JSON sang .drawio chuẩn + xuất ngay bản xem trước SVG & HTML tương tác
+# 1. Biên dịch từ JSON -> .drawio + .svg + .html tương tác
 python3 <skill-dir>/scripts/iso5807_builder.py spec.json \
   -o output.drawio \
   --render-svg output.svg \
   --render-html output.html
 
-# 2. Kiểm định cấu trúc + 12 quy tắc ngữ nghĩa ISO 5807:1985, Swimlane & WCAG AA
+# 2. Kiểm định toàn diện (tự đọc isoDiagramType trong XML, hoặc ép kiểu bằng --diagram-type)
 python3 <skill-dir>/scripts/validate_iso5807.py output.drawio --strict --score
+
+# 3. Kiểm định thuần ISO 5807 (tách riêng khỏi cảnh báo bố cục / tương phản)
+python3 <skill-dir>/scripts/validate_iso5807.py output.drawio --diagram-type system-flowchart --strict --iso-only --json
 ```
 
-### Bảng 12 Quy Tắc Kiểm Định (`validate_iso5807.py`) & Điều Khoản Ánh Xạ
+### Bảng Quy Tắc Kiểm Định & Phân Nhóm (`category`)
 
-| Mã chẩn đoán | Mức độ | Chuẩn / Điều khoản | Ý nghĩa kiểm tra |
-|---|---|---|---|
-| `E-ISO-START` | Error | `ISO 5807:1985 §9.4.2` | Phải có ít nhất 1 `Terminator` bắt đầu (`in=0, out>=1`). |
-| `E-ISO-END` | Error | `ISO 5807:1985 §9.4.2` | Phải có `Terminator` kết thúc và không có nút xử lý cụt (`out=0`). |
-| `E-ISO-DECISION-ENTRY` | Error | `ISO 5807:1985 §9.2.2.4` | Mỗi hình thoi `Decision` chỉ được có **duy nhất 1 lối vào** (nếu cần gom nhiều luồng, gom ở bước xử lý hoặc `Connector` trước khi vào hình thoi). |
-| `E-ISO-DECISION-LABEL` | Error | `ISO 5807:1985 §9.2.2.4 / §10.3.1` | 100% nhánh ra khỏi `Decision` phải có nhãn điều kiện rõ ràng. |
-| `E-ISO-CONNECTOR-PAIR` | Error | `ISO 5807:1985 §9.4.1 / §10.2.2` | Mỗi mã `On-Page Connector` phải đủ cặp vào (`in>0, out=0`) và đúng 1 nút ra (`in=0, out>0`); `Off-Page Connector` không được để trống nhãn. |
-| `W-DECISION-EXIT` / `W-ISO-DECISION-EXIT` | Warning | `ISO 5807:1985 §9.2.2.4 / §10.3.1` | `Decision` phải có `2–3` lối ra (`<2` hoặc `>3` đều bị cảnh báo). |
-| `W-ISO-STYLE-STRICT` | Warning | `ISO 5807:1985 §9.4.2 / §10.1.2` | Cấm dùng `ellipse` tròn thay cho stadium `terminator`. |
-| `W-ISO-LOOP-PAIR` | Warning | `ISO 5807:1985 §9.2.2.6` | Số lượng `loop_limit_start` phải khớp `loop_limit_end`. |
-| `W-ISO-ORPHAN` | Warning | `ISO 5807:1985 §9.3.1 / §10.2.1` | Không có nút cô lập hoặc không đi tới được từ điểm `Start`. |
-| `W-ISO-FLOW-DIR` | Warning | `ISO 5807:1985 §10.2.1.1 / §10.2.1.2` | Nhánh quay lui ngược chiều chính phải có waypoint hành lang biên ngoài. |
-| `W-ISO-SWIMLANE-CROSS` | Warning | `Pro. Diagrams Swimlane Layout` | Cạnh nối không được chạy đè dọc lên vạch phân cách Swimlane. |
-| `W-ISO-WCAG-CONTRAST` | Warning | `WCAG 2.1 AA (SC 1.4.3)` | Tương phản chữ/nền trong mọi nút phải đạt `>= 4.5:1`. |
+| Mã chẩn đoán | Mức độ | Nhóm (`category`) | Chuẩn / Điều khoản | Ý nghĩa kiểm tra |
+|---|---|---|---|---|
+| `E-ISO-EMPTY` | Error | `iso` | `ISO 5807:1985 §4–§8` | Từ chối tệp/trang `.drawio` rỗng hoặc chỉ có khung tiêu đề mà không có ký hiệu sơ đồ nào. |
+| `E-ISO-START` | Error | `iso` | `ISO 5807:1985 §4 / §5 / §9.4.2` | Kiểm tra điểm bắt đầu phù hợp loại sơ đồ (`Terminator` ở `§5`, dữ liệu/chứng từ ở `§4`, đơn vị xử lý ở `§7`). |
+| `E-ISO-END` | Error | `iso` | `ISO 5807:1985 §4 / §5 / §9.4.2` | Kiểm tra điểm kết thúc phù hợp loại sơ đồ và cấm bước xử lý điều khiển bị cụt (`out=0`). |
+| `E-ISO-DECISION-ENTRY` | Error | `iso` | `ISO 5807:1985 §9.2.2.4` | Mỗi `Decision` chỉ được có **duy nhất 1 lối vào (`in=1`)**. |
+| `E-ISO-DECISION-LABEL` | Error | `iso` | `ISO 5807:1985 §9.2.2.4 / §10.3.1` | 100% nhánh ra khỏi `Decision` phải có nhãn điều kiện rõ ràng. |
+| `E-ISO-LOOP-PAIR` | Error | `iso` | `ISO 5807:1985 §9.2.2.6` | Kiểm tra khớp từng cặp mở–đóng `Loop Limit` theo đúng mã `loop_id` / dòng mã (cặp `L`–`M` bị từ chối dù cân bằng số lượng). |
+| `E-ISO-CONNECTOR-PAIR` | Error | `iso` | `ISO 5807:1985 §9.4.1 / §10.2.2` | Ghép cặp `Connector` theo mã, vai trò vào/ra và tham chiếu trang xuyên toàn bộ các trang `<diagram>`; báo rõ mã và trang thiếu đầu nối. |
+| `E-ISO-RESOURCES` | Error | `iso` | `ISO 5807:1985 §8` | Sơ đồ `system-resources` phải có cả đơn vị xử lý và đơn vị dữ liệu/lưu trữ. |
+| `W-DECISION-EXIT` | Warning | `iso` | `ISO 5807:1985 §9.2.2.4 / §10.3.1` | `Decision` có `< 2` nhánh ra. |
+| `W-ISO-STYLE-STRICT` | Warning | `iso` | `ISO 5807:1985 §9.4.2 / §10.1.2` | Cấm dùng `ellipse` tròn thay cho stadium `terminator`. |
+| `W-ISO-ORPHAN` | Warning | `iso` | `ISO 5807:1985 §9.3.1 / §10.2.1` | Nút cô lập hoàn toàn hoặc không đi tới được theo ngữ nghĩa từng loại sơ đồ. |
+| `W-ISO-CONTROL-TRANSFER` | Warning | `iso` | `ISO 5807:1985 §9.3.2.1` | Cạnh `control_transfer` thiếu mã loại chuyển điều khiển (`P`, `T`, `I`...). |
+| `I-LAYOUT-DECISION-FANOUT` | **Info (Gợi ý)** | `layout` | `ISO 5807:1985 §10.3.1` | Gợi ý bố cục khi `Decision` có `> 3` nhánh (hợp lệ hoàn toàn theo ISO 5807, **không bao giờ đánh trượt `iso_compliant` hay `--strict`**). |
+| `W-ISO-FLOW-DIR` | Warning | `layout` | `ISO 5807:1985 §10.2.1.1` | Nhánh quay lui một chiều thiếu waypoint hành lang biên ngoài. |
+| `W-ISO-SWIMLANE-CROSS` | Warning | `layout` | `Pro. Diagrams Swimlane Layout` | Cạnh nối chạy đè dọc lên vạch phân cách làn Swimlane. |
+| `W-ISO-WCAG-CONTRAST` | Warning | `contrast` | `WCAG 2.1 AA (SC 1.4.3)` | Tương phản chữ/nền trong nút `< 4.5:1` (tách biệt với `iso_compliant`). |
 
-Nếu `validate_iso5807.py` báo lỗi hoặc cảnh báo, chạy với cờ `--json` để đọc mảng `supportedFixes[]` (kèm trường `clause`) và sửa dứt điểm trong **tối đa 2 vòng lặp** rồi kết xuất lại `.svg`/`.html`.
+Báo cáo `--json` xuất riêng `iso_compliant`, `layout_clean`, `contrast_clean`, `passed`, `summary`, và `supportedFixes[]` để vòng tự sửa (`<= 2` vòng) xác định chính xác cần sửa chuẩn ISO hay chỉ chỉnh bố cục/màu sắc.

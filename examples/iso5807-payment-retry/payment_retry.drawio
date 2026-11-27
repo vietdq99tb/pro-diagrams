@@ -1,6 +1,6 @@
-<mxfile host="pro-diagrams" version="1.0.0">
+<mxfile host="pro-diagrams" version="1.1.0">
   <diagram id="page-1" name="ISO-5807-Diagram">
-    <mxGraphModel dx="1280" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="1650" background="#F8F6F2" math="0" shadow="0">
+    <mxGraphModel dx="1280" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="1650" background="#F8F6F2" math="0" shadow="0" isoDiagramType="program-flowchart">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />

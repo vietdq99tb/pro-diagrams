@@ -1,0 +1,248 @@
+{
+  "kind": "system-flowchart",
+  "title": "C · Hệ thống xử lý đơn hàng",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "terminator",
+      "label": "Bắt đầu đơn hàng"
+    },
+    {
+      "id": "display_choice",
+      "type": "manual_input",
+      "label": "Chọn màn hình"
+    },
+    {
+      "id": "display_data",
+      "type": "direct_data",
+      "label": "Dữ liệu hiển thị"
+    },
+    {
+      "id": "init",
+      "type": "process",
+      "label": "Xử lý ban đầu"
+    },
+    {
+      "id": "initial_display",
+      "type": "display",
+      "label": "Màn hình tra tồn"
+    },
+    {
+      "id": "inquiry_input",
+      "type": "manual_input",
+      "label": "Nhập yêu cầu tra cứu"
+    },
+    {
+      "id": "customers",
+      "type": "direct_data",
+      "label": "Tệp khách hàng"
+    },
+    {
+      "id": "stock_read",
+      "type": "direct_data",
+      "label": "Tệp tồn kho"
+    },
+    {
+      "id": "check",
+      "type": "process",
+      "label": "Kiểm tra dữ liệu và tồn kho"
+    },
+    {
+      "id": "inquiry_output",
+      "type": "display",
+      "label": "Hiển thị lỗi hoặc kết quả tra cứu"
+    },
+    {
+      "id": "temp_order",
+      "type": "sequential_data",
+      "label": "Tệp đơn hàng tạm"
+    },
+    {
+      "id": "decision",
+      "type": "decision",
+      "label": "Đơn hàng hay tra cứu?"
+    },
+    {
+      "id": "order_input",
+      "type": "manual_input",
+      "label": "Nhập chi tiết đơn hàng"
+    },
+    {
+      "id": "order",
+      "type": "process",
+      "label": "Xử lý đơn hàng"
+    },
+    {
+      "id": "order_output",
+      "type": "display",
+      "label": "Hiển thị để kiểm tra đơn"
+    },
+    {
+      "id": "stock_update",
+      "type": "direct_data",
+      "label": "Tệp tồn kho"
+    },
+    {
+      "id": "received",
+      "type": "direct_data",
+      "label": "Tệp đơn đã nhận"
+    },
+    {
+      "id": "billing",
+      "type": "process",
+      "label": "Lập hóa đơn"
+    },
+    {
+      "id": "invoices",
+      "type": "document",
+      "label": "Hóa đơn"
+    },
+    {
+      "id": "end",
+      "type": "terminator",
+      "label": "Kết thúc công việc"
+    },
+    {
+      "id": "inputs_note",
+      "type": "annotation",
+      "attach_to": "inquiry_input",
+      "label": "Mã khách, mã hàng và số lượng"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "init",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "init",
+      "to": "check",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "check",
+      "to": "decision",
+      "label": "",
+      "id": "flow03"
+    },
+    {
+      "from": "display_choice",
+      "to": "init",
+      "label": "",
+      "id": "flow04"
+    },
+    {
+      "from": "display_data",
+      "to": "init",
+      "label": "",
+      "id": "flow05"
+    },
+    {
+      "from": "init",
+      "to": "initial_display",
+      "label": "",
+      "id": "flow06"
+    },
+    {
+      "from": "inquiry_input",
+      "to": "check",
+      "label": "",
+      "id": "flow07"
+    },
+    {
+      "from": "customers",
+      "to": "check",
+      "label": "",
+      "id": "flow08"
+    },
+    {
+      "from": "stock_read",
+      "to": "check",
+      "label": "",
+      "id": "flow09"
+    },
+    {
+      "from": "check",
+      "to": "inquiry_output",
+      "label": "",
+      "id": "flow10"
+    },
+    {
+      "from": "check",
+      "to": "temp_order",
+      "label": "",
+      "id": "flow11"
+    },
+    {
+      "from": "decision",
+      "to": "end",
+      "label": "Tra cứu",
+      "id": "flow12"
+    },
+    {
+      "from": "decision",
+      "to": "order",
+      "label": "Đặt hàng",
+      "id": "flow13"
+    },
+    {
+      "from": "temp_order",
+      "to": "order",
+      "label": "",
+      "id": "flow14"
+    },
+    {
+      "from": "order_input",
+      "to": "order",
+      "label": "",
+      "id": "flow15"
+    },
+    {
+      "from": "order",
+      "to": "order_output",
+      "label": "",
+      "id": "flow16"
+    },
+    {
+      "from": "order",
+      "to": "stock_update",
+      "label": "",
+      "id": "flow17",
+      "bidirectional": true
+    },
+    {
+      "from": "order",
+      "to": "received",
+      "label": "",
+      "id": "flow19"
+    },
+    {
+      "from": "received",
+      "to": "billing",
+      "label": "",
+      "id": "flow20"
+    },
+    {
+      "from": "billing",
+      "to": "end",
+      "label": "",
+      "id": "flow21"
+    },
+    {
+      "from": "order",
+      "to": "billing",
+      "label": "",
+      "id": "flow22"
+    },
+    {
+      "from": "billing",
+      "to": "invoices",
+      "label": "",
+      "id": "flow23"
+    }
+  ]
+}

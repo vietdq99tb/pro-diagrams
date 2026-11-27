@@ -351,26 +351,35 @@ class TestTrackAISO5807SwimlaneCPM(unittest.TestCase):
                 self.assertEqual(r_val.returncode, 0, f"{preset} validate failed: {r_val.stdout}\n{r_val.stderr}")
                 self.assertIn("score: 0", r_val.stdout)
 
-    def test_all_23_iso5807_symbols_strict_zero_score(self):
+    def test_all_26_iso5807_symbols_strict_zero_score(self):
         with open(os.path.join(SKILL_DIR, "data", "iso5807-shapes.json"), encoding="utf-8") as fh:
-            symbols = json.load(fh)["symbols"]
-        self.assertEqual(len(symbols), 23, "Expected exactly 23 ISO 5807 symbols in catalog")
+            catalog = json.load(fh)
+        symbols = catalog["symbols"]
+        self.assertEqual(len(symbols), 26, "Expected exactly 26 ISO 5807 + extended symbols in catalog")
+        self.assertEqual(symbols["card"]["iso_section"], "ISO 5807:1985 §9.1.2.6")
+        self.assertEqual(symbols["paper_tape"]["iso_section"], "ISO 5807:1985 §9.1.2.7")
+        self.assertEqual(symbols["ellipsis"]["iso_section"], "ISO 5807:1985 §9.4.4")
 
-        # Build a valid ISO 5807 flowchart exercising all 23 symbol types
+        # Build a valid ISO 5807 flowchart exercising all 26 symbol types
         seq_types = [
             "data", "preparation", "predefined_process", "process", "document",
             "multi_document", "database", "direct_data", "stored_data",
-            "sequential_data", "internal_storage", "manual_operation",
-            "manual_input", "loop_limit_start", "delay", "display",
-            "parallel_mode", "loop_limit_end", "off_page_connector",
+            "sequential_data", "internal_storage", "card", "paper_tape",
+            "manual_operation", "manual_input", "loop_limit_start", "delay",
+            "display", "parallel_mode", "ellipsis", "loop_limit_end",
+            "off_page_connector",
         ]
-        nodes = [{"id": "n_start", "type": "terminator", "label": "Bắt đầu 23 ký hiệu"}]
+        nodes = [{"id": "n_start", "type": "terminator", "label": "Bắt đầu 26 ký hiệu"}]
         edges = []
         prev = "n_start"
         for idx, stype in enumerate(seq_types):
             nid = f"sym_{idx}_{stype}"
-            lbl = "Lặp kiểm tra" if stype in ("loop_limit_start", "loop_limit_end") else f"Bước {stype}"
-            nodes.append({"id": nid, "type": stype, "label": lbl})
+            if stype in ("loop_limit_start", "loop_limit_end"):
+                nodes.append({"id": nid, "type": stype, "label": "Lặp kiểm tra", "loop_id": "L_ALL"})
+            elif stype == "ellipsis":
+                nodes.append({"id": nid, "type": stype, "label": "..."})
+            else:
+                nodes.append({"id": nid, "type": stype, "label": f"Bước {stype}"})
             edges.append({"from": prev, "to": nid})
             prev = nid
         nodes.extend([
@@ -378,7 +387,7 @@ class TestTrackAISO5807SwimlaneCPM(unittest.TestCase):
             {"id": "conn_in", "type": "on_page_connector", "label": "A"},
             {"id": "conn_out", "type": "on_page_connector", "label": "A"},
             {"id": "n_end", "type": "terminator", "label": "Kết thúc"},
-            {"id": "note_all", "type": "annotation", "attach_to": "sym_3_process", "label": "Đầy đủ 23 ký hiệu ISO 5807"},
+            {"id": "note_all", "type": "annotation", "attach_to": "sym_3_process", "label": "Đầy đủ 26 ký hiệu ISO 5807"},
         ])
         edges.extend([
             {"from": prev, "to": "dec_final"},
@@ -389,22 +398,28 @@ class TestTrackAISO5807SwimlaneCPM(unittest.TestCase):
         used_types = {n["type"] for n in nodes}
         self.assertEqual(used_types, set(symbols.keys()))
 
-        spec = {"kind": "iso5807-flowchart", "direction": "TB", "title": "Kiểm thử Đủ 23 Ký hiệu ISO 5807", "nodes": nodes, "edges": edges}
+        spec = {"kind": "iso5807-flowchart", "direction": "TB", "title": "Kiểm thử Đủ 26 Ký hiệu ISO 5807", "nodes": nodes, "edges": edges}
         with tempfile.TemporaryDirectory() as tmp:
-            spec_path = os.path.join(tmp, "all23.json")
-            out_drawio = os.path.join(tmp, "all23.drawio")
+            spec_path = os.path.join(tmp, "all26.json")
+            out_drawio = os.path.join(tmp, "all26.drawio")
+            out_svg = os.path.join(tmp, "all26.svg")
             with open(spec_path, "w", encoding="utf-8") as fh:
                 json.dump(spec, fh, ensure_ascii=False)
-            r_build = _run_script("iso5807_builder.py", [spec_path, "-o", out_drawio], cwd=tmp)
+            r_build = _run_script("iso5807_builder.py", [spec_path, "-o", out_drawio, "--render-svg", out_svg], cwd=tmp)
             self.assertEqual(r_build.returncode, 0, r_build.stderr)
 
             r_val = _run_script("validate_iso5807.py", [out_drawio, "--strict", "--score", "--json"], cwd=tmp)
-            self.assertEqual(r_val.returncode, 0, f"all23 strict failed: {r_val.stdout}\n{r_val.stderr}")
+            self.assertEqual(r_val.returncode, 0, f"all26 strict failed: {r_val.stdout}\n{r_val.stderr}")
             rep = json.loads(r_val.stdout)
             self.assertTrue(rep["iso_compliant"])
             self.assertEqual(rep["errors"], 0)
             self.assertEqual(rep["warnings"], 0)
             self.assertEqual(rep["readability_score"], 0)
+
+            with open(out_svg, encoding="utf-8") as sf:
+                svg_txt = sf.read()
+            for expected_shape in ('data-shape="card"', 'data-shape="paper_tape"', 'data-shape="ellipsis"'):
+                self.assertIn(expected_shape, svg_txt)
 
     def test_custom_preset_path_and_unknown_preset_rejection(self):
         spec = {
@@ -763,6 +778,436 @@ class TestTrackAISO5807SwimlaneCPM(unittest.TestCase):
             r_retry_val = _run_script("validate_iso5807.py", [retry_out, "--strict", "--score", "--json"], cwd=tmp)
             self.assertEqual(r_retry_val.returncode, 0, r_retry_val.stdout)
             self.assertEqual(json.loads(r_retry_val.stdout)["readability_score"], 0)
+
+    def test_v101_empty_drawio_page_rejected_by_strict_validator(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            blank_page = os.path.join(tmp, "blank.drawio")
+            with open(blank_page, "w", encoding="utf-8") as fh:
+                fh.write(
+                    '<mxfile host="pro-diagrams"><diagram id="p1" name="Trang trống">'
+                    '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
+                    '</root></mxGraphModel></diagram></mxfile>'
+                )
+            r_val = _run_script("validate_iso5807.py", [blank_page, "--strict", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 1, f"Empty page must fail --strict: {r_val.stdout}")
+            rep = json.loads(r_val.stdout)
+            self.assertFalse(rep["iso_compliant"])
+            self.assertFalse(rep["passed"])
+            codes = {d["code"] for d in rep["diagnostics"]}
+            self.assertIn("E-ISO-EMPTY", codes)
+
+            # Chrome-only page (only title banner, 0 flow nodes) must also fail E-ISO-EMPTY
+            chrome_only = os.path.join(tmp, "chrome_only.drawio")
+            with open(chrome_only, "w", encoding="utf-8") as fh:
+                fh.write(
+                    '<mxfile host="pro-diagrams"><diagram id="p1" name="Chỉ tiêu đề">'
+                    '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
+                    '<mxCell id="title_banner" value="Tiêu đề" style="text;html=1;fillColor=none;strokeColor=none;" '
+                    'vertex="1" parent="1"><mxGeometry x="40" y="20" width="300" height="40" as="geometry"/></mxCell>'
+                    '</root></mxGraphModel></diagram></mxfile>'
+                )
+            r_ch = _run_script("validate_iso5807.py", [chrome_only, "--strict", "--json"], cwd=tmp)
+            self.assertEqual(r_ch.returncode, 1)
+            self.assertIn("E-ISO-EMPTY", {d["code"] for d in json.loads(r_ch.stdout)["diagnostics"]})
+
+    def test_v101_sop_duration_does_not_trigger_cpm_while_explicit_cpm_cycle_rejected(self):
+        pay_spec = _eval1_payment_retry_spec(with_hints=True)
+        for node in pay_spec["nodes"]:
+            if node["type"] == "delay":
+                node["duration"] = 5
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "pay_dur5.json")
+            dp = os.path.join(tmp, "pay_dur5.drawio")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(pay_spec, fh, ensure_ascii=False)
+            r_build = _run_script("iso5807_builder.py", [sp, "-o", dp], cwd=tmp)
+            self.assertEqual(r_build.returncode, 0, f"SOP with duration:5 falsely triggered CPM: {r_build.stderr}")
+            with open(dp, encoding="utf-8") as fh:
+                xml_txt = fh.read()
+            self.assertNotIn("ES=", xml_txt, "SOP node label should not be overwritten with CPM ES/EF metrics")
+            r_val = _run_script("validate_iso5807.py", [dp, "--strict", "--score", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 0, r_val.stdout)
+            self.assertTrue(json.loads(r_val.stdout)["iso_compliant"])
+
+            # Explicit compute_cpm: True on a cyclic graph MUST still fail
+            explicit_cyc = {
+                "kind": "iso5807-flowchart",
+                "compute_cpm": True,
+                "nodes": [
+                    {"id": "A", "type": "process", "label": "A", "duration": 3},
+                    {"id": "B", "type": "process", "label": "B", "duration": 5},
+                ],
+                "edges": [{"from": "A", "to": "B"}, {"from": "B", "to": "A"}],
+            }
+            with self.assertRaisesRegex(ValueError, "cycle"):
+                iso5807_builder.compile_spec_to_drawio(explicit_cyc)
+
+    def test_v101_swimlane_whitespace_lane_id_normalization_and_duplicate_rejection(self):
+        spec = {
+            "kind": "swimlane",
+            "title": "Chuẩn hóa khoảng trắng ID làn",
+            "lanes": [
+                {"id": " rd ", "title": "Nghiên cứu & Phát triển"},
+                {"id": "  qa\t", "title": "Kiểm thử chất lượng"},
+            ],
+            "nodes": [
+                {"id": "s", "type": "terminator", "label": "Bắt đầu", "lane": "rd"},
+                {"id": "p", "type": "process", "label": "Kiểm thử tích hợp", "lane": "qa"},
+                {"id": "e", "type": "terminator", "label": "Kết thúc", "lane": "qa"},
+            ],
+            "edges": [{"from": "s", "to": "p"}, {"from": "p", "to": "e"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "ws_lane.json")
+            dp = os.path.join(tmp, "ws_lane.drawio")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(spec, fh, ensure_ascii=False)
+            r_build = _run_script("iso5807_builder.py", [sp, "-o", dp], cwd=tmp)
+            self.assertEqual(r_build.returncode, 0, r_build.stderr)
+            r_val = _run_script("validate_iso5807.py", [dp, "--strict", "--score", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 0, r_val.stdout)
+            rep = json.loads(r_val.stdout)
+            self.assertTrue(rep["iso_compliant"])
+            self.assertEqual(rep["readability_score"], 0)
+
+            # Duplicate lane ID after trimming (" rd " vs "rd") MUST raise a clear ValueError
+            dup_spec = dict(spec, lanes=[{"id": " rd ", "title": "R&D 1"}, {"id": "rd", "title": "R&D 2"}])
+            with self.assertRaisesRegex(ValueError, "duplicate.*lane id 'rd'"):
+                iso5807_builder.compile_spec_to_drawio(dup_spec)
+
+    def test_v101_five_branch_decision_single_stem_passes_iso_and_separates_contrast(self):
+        spec = {
+            "kind": "program-flowchart",
+            "title": "§10.3.1 · Decision 5 nhánh có nhãn",
+            "direction": "TB",
+            "nodes": [
+                {"id": "start", "type": "terminator", "label": "Bắt đầu"},
+                {"id": "choose", "type": "decision", "label": "Giá trị điều kiện"},
+                {"id": "e1", "type": "terminator", "label": "Chọn 1"},
+                {"id": "e2", "type": "terminator", "label": "Chọn 2"},
+                {"id": "e3", "type": "terminator", "label": "Chọn 3"},
+                {"id": "e4", "type": "terminator", "label": "Chọn 4"},
+                {"id": "e5", "type": "terminator", "label": "Chọn 5"},
+            ],
+            "edges": [
+                {"from": "start", "to": "choose"},
+                {"from": "choose", "to": "e1", "label": "1"},
+                {"from": "choose", "to": "e2", "label": "2"},
+                {"from": "choose", "to": "e3", "label": "3"},
+                {"from": "choose", "to": "e4", "label": "4"},
+                {"from": "choose", "to": "e5", "label": "5"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "five_exits.json")
+            dp = os.path.join(tmp, "five_exits.drawio")
+            svgp = os.path.join(tmp, "five_exits.svg")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(spec, fh, ensure_ascii=False)
+            self.assertEqual(_run_script("iso5807_builder.py", [sp, "-o", dp, "--render-svg", svgp], cwd=tmp).returncode, 0)
+
+            with open(dp, encoding="utf-8") as fh:
+                xml_txt = fh.read()
+            self.assertIn("isoStemBranch=1;", xml_txt, "5-exit Decision should auto-use ISO §10.3.1(b) single-stem fan-out")
+
+            r_val = _run_script("validate_iso5807.py", [dp, "--strict", "--score", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 0, f"5-exit Decision must pass --strict: {r_val.stdout}")
+            rep = json.loads(r_val.stdout)
+            self.assertTrue(rep["iso_compliant"])
+            self.assertTrue(rep["passed"])
+            self.assertEqual(rep["errors"], 0)
+            self.assertEqual(rep["warnings"], 0)
+            self.assertEqual(rep["hints"], 1)
+            self.assertEqual(rep["readability_score"], 0)
+            self.assertEqual(rep["diagnostics"][0]["code"], "I-LAYOUT-DECISION-FANOUT")
+            self.assertEqual(rep["diagnostics"][0]["severity"], "info")
+            self.assertEqual(rep["diagnostics"][0]["category"], "layout")
+
+            # Inject a low-contrast fillColor on one node: ISO compliance must remain True while contrast warning fails --strict
+            low_c_dp = os.path.join(tmp, "low_contrast.drawio")
+            with open(low_c_dp, "w", encoding="utf-8") as fh:
+                fh.write(xml_txt.replace("fillColor=#EEF2F5;", "fillColor=#3A4248;", 1))
+            r_strict = _run_script("validate_iso5807.py", [low_c_dp, "--strict", "--json"], cwd=tmp)
+            self.assertEqual(r_strict.returncode, 1)
+            rep_lc = json.loads(r_strict.stdout)
+            self.assertTrue(rep_lc["iso_compliant"], "ISO compliance must stay decoupled from WCAG contrast warnings")
+            self.assertFalse(rep_lc["contrast_clean"])
+            self.assertGreaterEqual(rep_lc["summary"]["contrast_warnings"], 1)
+            r_iso_only = _run_script("validate_iso5807.py", [low_c_dp, "--strict", "--iso-only", "--json"], cwd=tmp)
+            self.assertEqual(r_iso_only.returncode, 0)
+
+    def test_v101_loop_limit_id_pairing_mismatch_rejected_and_nested_loops_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # 1. Balanced count but mismatched IDs (L vs M) MUST fail E-ISO-LOOP-PAIR
+            mismatch_spec = {
+                "kind": "program-flowchart",
+                "nodes": [
+                    {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+                    {"id": "lo", "type": "loop_limit_start", "label": "L\nDừng khi hết chỉ số"},
+                    {"id": "w", "type": "process", "label": "Xử lý"},
+                    {"id": "lc", "type": "loop_limit_end", "label": "M"},
+                    {"id": "e", "type": "terminator", "label": "Kết thúc"},
+                ],
+                "edges": [
+                    {"from": "s", "to": "lo"}, {"from": "lo", "to": "w"},
+                    {"from": "w", "to": "lc"}, {"from": "lc", "to": "e"},
+                ],
+            }
+            mp = os.path.join(tmp, "loop_mismatch.drawio")
+            iso5807_builder.compile_spec_to_drawio(mismatch_spec).write(mp, encoding="utf-8")
+            rep_m = validate_iso5807.build_structured_report(mp, strict=True)
+            self.assertFalse(rep_m["iso_compliant"])
+            self.assertIn("E-ISO-LOOP-PAIR", {d["code"] for d in rep_m["diagnostics"]})
+
+            # 2. Test-after loop (ID on last line of loop_limit_end per §9.2.2.6) MUST pass
+            after_spec = {
+                "kind": "program-flowchart",
+                "nodes": [
+                    {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+                    {"id": "lo", "type": "loop_limit_start", "label": "L"},
+                    {"id": "w", "type": "process", "label": "Xử lý"},
+                    {"id": "lc", "type": "loop_limit_end", "label": "Dừng khi hết chỉ số\nL"},
+                    {"id": "e", "type": "terminator", "label": "Kết thúc"},
+                ],
+                "edges": [
+                    {"from": "s", "to": "lo"}, {"from": "lo", "to": "w"},
+                    {"from": "w", "to": "lc"}, {"from": "lc", "to": "e"},
+                ],
+            }
+            ap = os.path.join(tmp, "loop_after.drawio")
+            iso5807_builder.compile_spec_to_drawio(after_spec).write(ap, encoding="utf-8")
+            rep_a = validate_iso5807.build_structured_report(ap, strict=True)
+            self.assertTrue(rep_a["iso_compliant"] and rep_a["passed"], rep_a["diagnostics"])
+
+            # 3. Two nested loops with explicit loop_id metadata MUST pass
+            nested_spec = {
+                "kind": "program-flowchart",
+                "nodes": [
+                    {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+                    {"id": "o1", "type": "loop_limit_start", "loop_id": "OUTER", "label": "Vòng ngoài i=1..N"},
+                    {"id": "i1", "type": "loop_limit_start", "loop_id": "INNER", "label": "Vòng trong j=1..M"},
+                    {"id": "w", "type": "process", "label": "Tính tổng phần tử"},
+                    {"id": "i2", "type": "loop_limit_end", "loop_id": "INNER", "label": "Kết thúc vòng j"},
+                    {"id": "o2", "type": "loop_limit_end", "loop_id": "OUTER", "label": "Kết thúc vòng i"},
+                    {"id": "e", "type": "terminator", "label": "Kết thúc"},
+                ],
+                "edges": [
+                    {"from": "s", "to": "o1"}, {"from": "o1", "to": "i1"},
+                    {"from": "i1", "to": "w"}, {"from": "w", "to": "i2"},
+                    {"from": "i2", "to": "o2"}, {"from": "o2", "to": "e"},
+                ],
+            }
+            np = os.path.join(tmp, "loop_nested.drawio")
+            iso5807_builder.compile_spec_to_drawio(nested_spec).write(np, encoding="utf-8")
+            with open(np, encoding="utf-8") as fh:
+                self.assertIn("isoLoopId=OUTER;", fh.read())
+            rep_n = validate_iso5807.build_structured_report(np, strict=True)
+            self.assertTrue(rep_n["iso_compliant"] and rep_n["passed"], rep_n["diagnostics"])
+
+    def test_v110_cross_page_connectors_multipage_spec_and_missing_counterpart(self):
+        multipage_spec = {
+            "kind": "program-flowchart",
+            "pages": [
+                {
+                    "page_name": "1.4",
+                    "title": "Trang 1.4",
+                    "nodes": [
+                        {"id": "start", "type": "terminator", "label": "Bắt đầu"},
+                        {"id": "p1", "type": "process", "label": "Xử lý ở trang 1.4"},
+                        {"id": "c_out", "type": "on_page_connector", "label": "λ1", "ref_page": "3.2"},
+                        {"id": "n1", "type": "annotation", "attach_to": "c_out", "label": "Đến trang 3.2"},
+                    ],
+                    "edges": [
+                        {"from": "start", "to": "p1"},
+                        {"from": "p1", "to": "c_out"},
+                    ],
+                },
+                {
+                    "page_name": "3.2",
+                    "title": "Trang 3.2",
+                    "nodes": [
+                        {"id": "c_in", "type": "on_page_connector", "label": "λ1", "ref_page": "1.4"},
+                        {"id": "p2", "type": "process", "label": "Xử lý tiếp ở trang 3.2"},
+                        {"id": "finish", "type": "terminator", "label": "Kết thúc"},
+                        {"id": "n2", "type": "annotation", "attach_to": "c_in", "label": "Từ trang 1.4"},
+                    ],
+                    "edges": [
+                        {"from": "c_in", "to": "p2"},
+                        {"from": "p2", "to": "finish"},
+                    ],
+                },
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "multipage.json")
+            dp = os.path.join(tmp, "multipage.drawio")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(multipage_spec, fh, ensure_ascii=False)
+            self.assertEqual(_run_script("iso5807_builder.py", [sp, "-o", dp], cwd=tmp).returncode, 0)
+
+            r_val = _run_script("validate_iso5807.py", [dp, "--strict", "--score", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 0, f"Valid cross-page connector λ1 must pass: {r_val.stdout}")
+            rep = json.loads(r_val.stdout)
+            self.assertTrue(rep["iso_compliant"] and rep["passed"])
+            self.assertEqual(rep["errors"], 0)
+            self.assertEqual(rep["warnings"], 0)
+
+            # Missing counterpart: change λ1 on page 3.2 to λ2 -> MUST fail naming code & page
+            broken_spec = json.loads(json.dumps(multipage_spec))
+            broken_spec["pages"][1]["nodes"][0]["label"] = "λ2"
+            bp = os.path.join(tmp, "multipage_broken.drawio")
+            iso5807_builder.compile_spec_to_drawio(broken_spec).write(bp, encoding="utf-8")
+            rep_b = validate_iso5807.build_structured_report(bp, strict=True)
+            self.assertFalse(rep_b["iso_compliant"])
+            conn_msgs = [d["message"] for d in rep_b["diagnostics"] if d["code"] == "E-ISO-CONNECTOR-PAIR"]
+            self.assertTrue(any("λ1" in m and "1.4" in m for m in conn_msgs), conn_msgs)
+            self.assertTrue(any("λ2" in m and "3.2" in m for m in conn_msgs), conn_msgs)
+
+            # Wrong ref_page: page 1.4 points to "9.9" instead of "3.2" -> MUST fail E-ISO-CONNECTOR-PAIR
+            badref_spec = json.loads(json.dumps(multipage_spec))
+            badref_spec["pages"][0]["nodes"][2]["ref_page"] = "9.9"
+            rp = os.path.join(tmp, "multipage_badref.drawio")
+            iso5807_builder.compile_spec_to_drawio(badref_spec).write(rp, encoding="utf-8")
+            rep_r = validate_iso5807.build_structured_report(rp, strict=True)
+            self.assertFalse(rep_r["iso_compliant"])
+            self.assertTrue(
+                any(d["code"] == "E-ISO-CONNECTOR-PAIR" and "9.9" in d["message"] and "3.2" in d["message"]
+                    for d in rep_r["diagnostics"]),
+                rep_r["diagnostics"],
+            )
+
+    def test_v110_iso5807_annex_a_through_e_regression_and_drawio_svg_parity(self):
+        fixtures_dir = os.path.join(SKILL_DIR, "tests", "fixtures", "iso5807_annex")
+        cases = [
+            ("annex_a_data_flowchart.json", "data-flowchart", True, 0, 0, 1),
+            ("annex_b_a_program_retry.json", "program-flowchart", True, 0, 0, 0),
+            ("annex_b_b_nested_loops.json", "program-flowchart", True, 0, 0, 0),
+            ("annex_c_system_flowchart.json", "system-flowchart", True, 1, 0, 0),
+            ("annex_d_program_network.json", "program-network", False, 5, 5, 0),
+            ("annex_e_system_resources.json", "system-resources", True, 2, 0, 1),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            for fname, expected_dtype, require_zero_score, exp_bidir, exp_ct, exp_overlays in cases:
+                fpath = os.path.join(fixtures_dir, fname)
+                self.assertTrue(os.path.exists(fpath), f"Missing Annex fixture: {fpath}")
+                out_drawio = os.path.join(tmp, fname.replace(".json", ".drawio"))
+                out_svg = os.path.join(tmp, fname.replace(".json", ".svg"))
+
+                r_build = _run_script("iso5807_builder.py", [fpath, "-o", out_drawio, "--render-svg", out_svg], cwd=tmp)
+                self.assertEqual(r_build.returncode, 0, f"{fname} compile failed: {r_build.stderr}")
+
+                # Validate ISO 5807 compliance via --strict --iso-only
+                r_iso = _run_script("validate_iso5807.py", [out_drawio, "--strict", "--iso-only", "--json"], cwd=tmp)
+                self.assertEqual(r_iso.returncode, 0, f"{fname} ISO validation failed: {r_iso.stdout}")
+                rep = json.loads(r_iso.stdout)
+                self.assertEqual(rep["diagram_type"], expected_dtype, fname)
+                self.assertTrue(rep["iso_compliant"], f"{fname}: {rep['diagnostics']}")
+                self.assertEqual(rep["summary"]["iso_errors"], 0, fname)
+                self.assertEqual(rep["summary"]["iso_warnings"], 0, fname)
+                self.assertEqual(rep["summary"]["contrast_warnings"], 0, fname)
+
+                if require_zero_score:
+                    r_full = _run_script("validate_iso5807.py", [out_drawio, "--strict", "--score", "--json"], cwd=tmp)
+                    self.assertEqual(r_full.returncode, 0, f"{fname} full --strict failed: {r_full.stdout}")
+                    self.assertEqual(json.loads(r_full.stdout)["readability_score"], 0, fname)
+
+                # Strict .drawio <-> .svg parity verification (no lost symbols, arrowheads, or markers)
+                drawio_root = ET.parse(out_drawio).getroot()
+                svg_root = ET.parse(out_svg).getroot()
+                svg_by_cell = {
+                    el.get("data-cell-id"): el
+                    for el in svg_root.iter()
+                    if el.get("data-cell-id")
+                }
+
+                bidir_seen = 0
+                ct_seen = 0
+                overlay_seen = 0
+                for cell in drawio_root.findall(".//mxCell"):
+                    cid = cell.get("id")
+                    if cid in ("0", "1", None) or cell.get("parent") is None:
+                        continue
+                    st = cell.get("style") or ""
+                    self.assertIn(cid, svg_by_cell, f"{fname}: cell {cid!r} missing from rendered SVG")
+                    g_el = svg_by_cell[cid]
+                    if cell.get("vertex") == "1" and cid != "title_banner":
+                        self.assertTrue(g_el.get("data-shape"), f"{fname}: vertex {cid!r} missing data-shape in SVG")
+                        if "isoOverlayItems=" in st:
+                            overlay_seen += 1
+                            self.assertTrue(g_el.get("data-overlay-items"), f"{fname}: overlay items lost on {cid!r}")
+                    elif cell.get("edge") == "1":
+                        has_start = "startArrow=block" in st
+                        has_end = "endArrow=none" not in st
+                        if has_start:
+                            self.assertEqual(g_el.get("data-start-arrow"), "block", f"{fname}: lost startArrow on {cid!r}")
+                            self.assertTrue(
+                                any(ch.get("class") == "arrow-start" for ch in g_el.iter()),
+                                f"{fname}: missing <polygon class='arrow-start'> on {cid!r}",
+                            )
+                        if has_end:
+                            self.assertTrue(
+                                any(ch.get("class") == "arrow-end" for ch in g_el.iter()),
+                                f"{fname}: missing <polygon class='arrow-end'> on {cid!r}",
+                            )
+                        if has_start and has_end:
+                            bidir_seen += 1
+                        if "isoLine=control_transfer" in st:
+                            ct_seen += 1
+                            self.assertEqual(g_el.get("data-iso-line"), "control_transfer", f"{fname}: lost control_transfer on {cid!r}")
+                            markers = [ch for ch in g_el.iter() if ch.get("class") == "control-transfer-marker"]
+                            self.assertEqual(len(markers), 1, f"{fname}: missing control-transfer triangle on {cid!r}")
+                            self.assertEqual(markers[0].get("data-code"), (cell.get("value") or "").strip())
+
+                self.assertEqual(bidir_seen, exp_bidir, f"{fname}: bidirectional edge parity mismatch")
+                self.assertEqual(ct_seen, exp_ct, f"{fname}: control_transfer triangle parity mismatch")
+                self.assertEqual(overlay_seen, exp_overlays, f"{fname}: overlay multi_document parity mismatch")
+
+    def test_v110_communication_link_and_control_transfer_validation(self):
+        spec = {
+            "kind": "program-network",
+            "title": "Kiểm thử Communication Link & Control Transfer",
+            "nodes": [
+                {"id": "p1", "type": "process", "label": "Trạm trung tâm"},
+                {"id": "c1", "type": "card", "label": "Thẻ tham số"},
+                {"id": "t1", "type": "paper_tape", "label": "Băng dữ liệu"},
+                {"id": "el", "type": "ellipsis", "label": "Bỏ lược trạm trung gian"},
+                {"id": "p2", "type": "process", "label": "Trạm biên"},
+            ],
+            "edges": [
+                {"from": "c1", "to": "p1"},
+                {"from": "p1", "to": "t1", "bidirectional": True},
+                {"from": "p1", "to": "el", "role": "communication_link", "label": "TLS 1.3"},
+                {"from": "el", "to": "p2", "role": "control_transfer", "label": "P"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "comm.json")
+            dp = os.path.join(tmp, "comm.drawio")
+            svgp = os.path.join(tmp, "comm.svg")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(spec, fh, ensure_ascii=False)
+            self.assertEqual(_run_script("iso5807_builder.py", [sp, "-o", dp, "--render-svg", svgp], cwd=tmp).returncode, 0)
+
+            rep = validate_iso5807.build_structured_report(dp, strict=True)
+            self.assertTrue(rep["iso_compliant"] and rep["passed"], rep["diagnostics"])
+
+            with open(svgp, encoding="utf-8") as sf:
+                svg_txt = sf.read()
+            self.assertIn('data-iso-line="communication_link"', svg_txt)
+            self.assertIn('data-iso-line="control_transfer"', svg_txt)
+            self.assertIn('data-code="P"', svg_txt)
+            self.assertIn('data-shape="card"', svg_txt)
+            self.assertIn('data-shape="paper_tape"', svg_txt)
+            self.assertIn('data-shape="ellipsis"', svg_txt)
+
+            # Control transfer without label MUST emit W-ISO-CONTROL-TRANSFER warning
+            bad_ct = json.loads(json.dumps(spec))
+            bad_ct["edges"][3]["label"] = ""
+            bdp = os.path.join(tmp, "bad_ct.drawio")
+            iso5807_builder.compile_spec_to_drawio(bad_ct).write(bdp, encoding="utf-8")
+            rep_bad = validate_iso5807.build_structured_report(bdp, strict=True)
+            self.assertFalse(rep_bad["iso_compliant"])
+            self.assertIn("W-ISO-CONTROL-TRANSFER", {d["code"] for d in rep_bad["diagnostics"]})
 
 
 class TestTrackARepurposeViewerRunbookAndRender(unittest.TestCase):

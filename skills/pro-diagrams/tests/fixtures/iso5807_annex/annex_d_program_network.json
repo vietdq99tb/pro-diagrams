@@ -1,0 +1,225 @@
+{
+  "kind": "program-network",
+  "title": "D · Mạng kích hoạt chương trình",
+  "direction": "LR",
+  "nodes": [
+    {
+      "id": "keyboard",
+      "type": "manual_input",
+      "label": "Bàn phím"
+    },
+    {
+      "id": "display",
+      "type": "display",
+      "label": "Hiển thị"
+    },
+    {
+      "id": "sensor_data",
+      "type": "data",
+      "label": "Dữ liệu cảm biến"
+    },
+    {
+      "id": "interface",
+      "type": "process",
+      "label": "Giao diện người–máy"
+    },
+    {
+      "id": "auto_track",
+      "type": "process",
+      "label": "Định danh tự động"
+    },
+    {
+      "id": "amend_flight",
+      "type": "process",
+      "label": "Sửa kế hoạch bay"
+    },
+    {
+      "id": "manual_track",
+      "type": "process",
+      "label": "Định danh thủ công"
+    },
+    {
+      "id": "track_ids",
+      "type": "direct_data",
+      "label": "Tệp định danh"
+    },
+    {
+      "id": "correlate",
+      "type": "process",
+      "label": "Đối sánh đường theo dõi"
+    },
+    {
+      "id": "flight_plans",
+      "type": "sequential_data",
+      "label": "Tệp kế hoạch bay"
+    },
+    {
+      "id": "clock",
+      "type": "process",
+      "label": "Đồng hồ thời gian thực"
+    },
+    {
+      "id": "amend_track",
+      "type": "process",
+      "label": "Sửa đường theo dõi"
+    },
+    {
+      "id": "track_db",
+      "type": "sequential_data",
+      "label": "Dữ liệu đường theo dõi"
+    },
+    {
+      "id": "display_proc",
+      "type": "process",
+      "label": "Xử lý hiển thị"
+    },
+    {
+      "id": "z_out",
+      "type": "on_page_connector",
+      "label": "Z"
+    },
+    {
+      "id": "z_in",
+      "type": "on_page_connector",
+      "label": "Z"
+    }
+  ],
+  "edges": [
+    {
+      "from": "keyboard",
+      "to": "display",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "keyboard",
+      "to": "interface",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "sensor_data",
+      "to": "auto_track",
+      "label": "",
+      "id": "flow03"
+    },
+    {
+      "from": "interface",
+      "to": "auto_track",
+      "label": "P",
+      "id": "flow04",
+      "role": "control_transfer"
+    },
+    {
+      "from": "interface",
+      "to": "amend_flight",
+      "label": "P",
+      "id": "flow05",
+      "role": "control_transfer"
+    },
+    {
+      "from": "interface",
+      "to": "manual_track",
+      "label": "I",
+      "id": "flow06",
+      "role": "control_transfer"
+    },
+    {
+      "from": "auto_track",
+      "to": "amend_flight",
+      "label": "T",
+      "id": "flow07",
+      "role": "control_transfer"
+    },
+    {
+      "from": "clock",
+      "to": "auto_track",
+      "label": "P",
+      "id": "flow08",
+      "role": "control_transfer"
+    },
+    {
+      "from": "auto_track",
+      "to": "track_ids",
+      "label": "",
+      "id": "flow09"
+    },
+    {
+      "from": "auto_track",
+      "to": "correlate",
+      "label": "",
+      "id": "flow10",
+      "bidirectional": true
+    },
+    {
+      "from": "track_ids",
+      "to": "correlate",
+      "label": "",
+      "id": "flow12",
+      "bidirectional": true
+    },
+    {
+      "from": "amend_flight",
+      "to": "correlate",
+      "label": "",
+      "id": "flow14",
+      "bidirectional": true
+    },
+    {
+      "from": "flight_plans",
+      "to": "amend_flight",
+      "label": "",
+      "id": "flow16"
+    },
+    {
+      "from": "flight_plans",
+      "to": "correlate",
+      "label": "",
+      "id": "flow17"
+    },
+    {
+      "from": "manual_track",
+      "to": "z_out",
+      "label": "",
+      "id": "flow18"
+    },
+    {
+      "from": "z_in",
+      "to": "track_ids",
+      "label": "",
+      "id": "flow19"
+    },
+    {
+      "from": "clock",
+      "to": "correlate",
+      "label": "",
+      "id": "flow20"
+    },
+    {
+      "from": "correlate",
+      "to": "amend_track",
+      "label": "",
+      "id": "flow21",
+      "bidirectional": true
+    },
+    {
+      "from": "amend_track",
+      "to": "track_db",
+      "label": "",
+      "id": "flow23",
+      "bidirectional": true
+    },
+    {
+      "from": "track_db",
+      "to": "display_proc",
+      "label": "",
+      "id": "flow25"
+    },
+    {
+      "from": "display_proc",
+      "to": "display",
+      "label": "",
+      "id": "flow26"
+    }
+  ]
+}

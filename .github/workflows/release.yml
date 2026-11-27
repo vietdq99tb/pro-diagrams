@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run 30 stdlib regression & adversarial tests
+      - name: Run 38 stdlib regression, adversarial & ISO 5807 Annex A-E tests
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
@@ -67,21 +67,19 @@ jobs:
           cat <<'EOF' > /tmp/release_notes.md
           ## Pro. Diagrams (`pro-diagrams`)
 
-          Zero-dependency (100% Python 3 stdlib) Agent Skill for publication-grade **ISO 5807:1985 process flowcharts**, **ISO 5807 cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **`data-*`-verified quantitative charts**, and **mathematical function plots** styled with the **Atelier Technical Warm** palette (WCAG AA/AAA) and **Open Sans** typography.
+          Zero-dependency (100% Python 3 stdlib) Agent Skill for publication-grade **ISO 5807:1985 diagrams (§4–§11)**, **ISO 5807 cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **`data-*`-verified quantitative charts**, and **mathematical function plots** styled with the **Atelier Technical Warm** palette (WCAG AA/AAA) and **Open Sans** typography.
 
           ### Highlights
-          - **Strict upfront JSON spec validation (`iso5807_builder.py`):** Rejects unknown node `type` (with typo suggestions), dangling edge `from`/`to`, unknown `lane`/`attach_to`/`slot`/`kind`/`direction`/`role` before layout instead of silently falling back.
-          - **12-rule ISO 5807:1985, Swimlane & WCAG AA linter (`validate_iso5807.py`):** Enforces `E-ISO-DECISION-ENTRY` (**ISO 5807:1985 §9.2.2.4** single entrance), binds every rule to its exact standard clause in `diagnostics[]` and `supportedFixes[]`, and aligns all 23 cataloged symbols to verified `§9.x / §10.x` clauses.
-          - **Strict DAG cycle guard for CPM (`kind: "cpm"`):** Aborts immediately with exact cycle chain and involved task IDs on circular dependencies, while preserving outer-corridor retry loops for ISO 5807 flowcharts & swimlanes.
-          - **Ready-to-run `examples/`:** Includes verified `iso5807-payment-retry`, `swimlane-rd-procurement` (4-lane + SOP Runbook), and `waterfall-opex-2026` specs and pre-rendered outputs.
-          - **Complete Apache-2.0 attribution:** Bundles full verbatim `data/APACHE-2.0.txt` alongside `data/shape-index.json.gz` per Apache-2.0 Section 4(a).
-          - **30/30 stdlib regression & adversarial tests** verified in CI on Python 3.11 & 3.12.
+          - **All 5 ISO 5807:1985 chart types (§4–§8) verified against official Annex A–E:** `data-flowchart` (Annex A), `program-flowchart` (Annex B(a)/B(b)), `system-flowchart` (Annex C), `program-network` (Annex D), and `system-resources` (Annex E) with `--diagram-type` auto-detection and `--iso-only` separation from layout/contrast warnings.
+          - **Complete 26-symbol catalog + 4 ISO §9.3 line types:** Added `card` (§9.1.2.6), `paper_tape` (§9.1.2.7), `ellipsis` (§9.4.4), stacked `multi_document` per-layer labels (§10.3.2), bidirectional read/write arrows (`startArrow` + `endArrow` in `.drawio` & `.svg`), Control Transfer `P`/`T`/`I` triangles (§9.3.2.1), Communication Link zigzags (§9.3.2.2), and single-stem Decision fan-outs (§10.3.1(b)).
+          - **Hardened ISO 5807 validator (`validate_iso5807.py`):** Rejects blank/chrome-only `.drawio` pages (`E-ISO-EMPTY`), validates Loop Limit start–end pairs per `loop_id` (`E-ISO-LOOP-PAIR`), pairs connectors across multi-page `<diagram>` documents with page references (§9.4.1 / §10.2.2), demotes `>3`-branch Decisions to advisory layout hint (`I-LAYOUT-DECISION-FANOUT`), normalizes whitespace lane IDs, and triggers CPM only when `kind == "cpm"` or `compute_cpm: true`.
+          - **CI quality gates:** 38/38 stdlib regression & `.drawio`↔`.svg` parity tests (Python 3.11 & 3.12), byte-for-byte `examples/` drift diff check, and a `windows-latest` PowerShell `.skill` unpack & run job.
 
           ### Installation / Cài đặt nhanh
           - **Agent Skills CLI:** `npx skills add vietdq99tb/pro-diagrams`
-          - **Claude Desktop / Offline ZIP:** Download `pro-diagrams.skill` attached below and import under *Capabilities → Skills* (or `unzip pro-diagrams.skill -d ~/.claude/skills/`).
+          - **Claude Desktop / Offline ZIP:** Download `pro-diagrams.skill` attached below and import under *Capabilities → Skills* (macOS/Linux: `unzip pro-diagrams.skill -d ~/.claude/skills/`; Windows PowerShell: `Copy-Item pro-diagrams.skill pro-diagrams.zip; Expand-Archive pro-diagrams.zip -DestinationPath "$env:USERPROFILE\.claude\skills" -Force`).
           EOF
 
           gh release create "$TAG_NAME" pro-diagrams.skill \
-            --title "Pro. Diagrams $TAG_NAME — ISO 5807:1985 Flowcharts, Swimlane SOPs, CPM & Honest Charts" \
+            --title "Pro. Diagrams $TAG_NAME — Full ISO 5807:1985 (§4–§11), Swimlane SOPs, CPM & Honest Charts" \
             --notes-file /tmp/release_notes.md

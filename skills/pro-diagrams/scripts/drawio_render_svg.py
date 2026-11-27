@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Zero-dependency pure-Python renderer from .drawio XML to standalone SVG, HTML, and PNG.
 
-Supports all 23 ISO 5807:1985 + standard flowchart shapes, horizontal & vertical
-Pools/Swimlanes, rounded orthogonal edges (both explicit waypointed and auto-routed),
-filled arrowheads, Open Sans Vietnamese multi-line text wrapping, and interactive
-HTML pan/zoom/search viewing — working anywhere even without Draw.io Desktop CLI.
+Supports all 26 ISO 5807:1985 + extended flowchart shapes (including Card §9.1.2.6,
+Paper Tape §9.1.2.7, Ellipsis §9.4.4, and §10.3.2 stacked multi-document labels),
+ISO 5807 §9.3 line markers (bidirectional arrows, Control Transfer triangle P/T/I,
+Communication Link zigzag), horizontal & vertical Pools/Swimlanes, rounded orthogonal
+edges, Open Sans Vietnamese multi-line text wrapping, and interactive HTML viewing.
 
 Usage:
   python3 drawio_render_svg.py diagram.drawio -o diagram.svg [--html diagram.html] [--png diagram.png]
 """
 import argparse
 import html
+import json
 import math
 import os
 import re
@@ -19,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import urllib.parse
 import xml.etree.ElementTree as ET
 
 GOOGLE_FONTS_IMPORT = (
@@ -45,6 +48,19 @@ def _parse_style(style_str):
     return d
 
 
+def _parse_overlay_items(st):
+    raw = st.get("isoOverlayItems")
+    if not raw:
+        return None
+    try:
+        val = json.loads(urllib.parse.unquote(raw))
+        if isinstance(val, list) and val:
+            return [str(v) for v in val]
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
 def _strip_html_lines(raw):
     if not raw:
         return []
@@ -66,7 +82,10 @@ def _strip_html_lines(raw):
 
 
 def _wrap_rich_lines(rich_lines, box_w, base_fsize, shape_kind):
-    eff_w = box_w * (0.62 if shape_kind == "diamond" else (0.76 if shape_kind in ("parallelogram", "hexagon", "predefined") else 0.86))
+    eff_w = box_w * (
+        0.62 if shape_kind == "diamond"
+        else (0.76 if shape_kind in ("parallelogram", "hexagon", "predefined", "card", "paper_tape") else 0.86)
+    )
     out = []
     for item in rich_lines:
         fs = item["font_size"] or base_fsize
@@ -85,6 +104,8 @@ def _wrap_rich_lines(rich_lines, box_w, base_fsize, shape_kind):
 def _detect_shape(st):
     flags = st["_flags"]
     sh = (st.get("shape") or "").lower()
+    if (st.get("isoSymbol") or "").lower() == "ellipsis":
+        return "ellipsis"
     if "swimlane" in flags or sh == "swimlane":
         return "swimlane"
     if "text" in flags:
@@ -111,6 +132,10 @@ def _detect_shape(st):
         return "sequential_data"
     if sh == "internalstorage":
         return "internal_storage"
+    if sh == "card" or "mxgraph.flowchart.card" in sh:
+        return "card"
+    if sh == "tape" or "paper_tape" in sh or "punched_tape" in sh:
+        return "paper_tape"
     if sh == "hexagon":
         return "hexagon"
     if sh == "trapezoid":
@@ -215,6 +240,23 @@ def _render_shape_svg(kind, x, y, w, h, st):
         return (f'<rect x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" rx="2" {common}/>'
                 f'<line x1="{x+14:g}" y1="{y:g}" x2="{x+14:g}" y2="{y+h:g}" stroke="{stroke_attr}" stroke-width="{sw:g}"/>'
                 f'<line x1="{x:g}" y1="{y+14:g}" x2="{x+w:g}" y2="{y+14:g}" stroke="{stroke_attr}" stroke-width="{sw:g}"/>')
+    if kind == "card":
+        cut = min(float(st.get("size", 18) or 18), w * 0.25, h * 0.45)
+        pts = f"{x+cut:g},{y:g} {x+w:g},{y:g} {x+w:g},{y+h:g} {x:g},{y+h:g} {x:g},{y+cut:g}"
+        return f'<polygon points="{pts}" {common}/>'
+    if kind == "paper_tape":
+        wy = min(10.0, h * 0.16)
+        ty_w = y + wy
+        by_w = y + h - wy
+        d = (
+            f"M {x:g},{ty_w:g} "
+            f"Q {x+w*0.25:g},{ty_w+wy*1.2:g} {cx:g},{ty_w:g} "
+            f"T {x+w:g},{ty_w:g} "
+            f"V {by_w:g} "
+            f"Q {x+w*0.75:g},{by_w-wy*1.2:g} {cx:g},{by_w:g} "
+            f"T {x:g},{by_w:g} Z"
+        )
+        return f'<path d="{d}" {common}/>'
     if kind == "hexagon":
         dx = min(22.0, w * 0.15)
         pts = f"{x+dx:g},{y:g} {x+w-dx:g},{y:g} {x+w:g},{cy:g} {x+w-dx:g},{y+h:g} {x+dx:g},{y+h:g} {x:g},{cy:g}"
@@ -267,7 +309,65 @@ def _render_shape_svg(kind, x, y, w, h, st):
         else:
             d = f"M {x+bw:g},{y:g} H {x:g} V {y+h:g} H {x+bw:g}"
         return f'<path d="{d}" fill="none" stroke="{stroke_attr}" stroke-width="{sw:g}"/>'
+    if kind == "ellipsis":
+        dot_col = _esc_attr(st.get("fontColor", "#1C2327"))
+        dot_y = cy
+        r = 3.2
+        return (
+            f'<circle cx="{cx-14:g}" cy="{dot_y:g}" r="{r:g}" fill="{dot_col}"/>'
+            f'<circle cx="{cx:g}" cy="{dot_y:g}" r="{r:g}" fill="{dot_col}"/>'
+            f'<circle cx="{cx+14:g}" cy="{dot_y:g}" r="{r:g}" fill="{dot_col}"/>'
+        )
     return f'<rect x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" {common}/>'
+
+
+def _render_overlay_multi_doc(x, y, w, h, st, items, base_fsize, base_fcol):
+    """Render ISO 5807:1985 §10.3.2 stacked document symbols with per-layer labels."""
+    fill = st.get("fillColor", "#FFFFFF")
+    fill_attr = "none" if fill == "none" else _esc_attr(fill)
+    stroke = st.get("strokeColor", "#4A5860")
+    stroke_attr = "none" if stroke == "none" else _esc_attr(stroke)
+    sw = float(st.get("strokeWidth", 1.5) or 1.5)
+    common = f'fill="{fill_attr}" stroke="{stroke_attr}" stroke-width="{sw:g}" stroke-linejoin="round"'
+    fcol_attr = _esc_attr(base_fcol)
+    n = len(items)
+    if n <= 1:
+        return _render_shape_svg("multi_document", x, y, w, h, st)
+
+    step_x = min(14.0, max(6.0, (w - 90.0) / max(1, n - 1)))
+    step_y = min(24.0, max(16.0, (h - 48.0) / max(1, n - 1)))
+    card_w = max(70.0, w - step_x * (n - 1))
+    card_h = max(44.0, h - step_y * (n - 1))
+    wy = min(8.0, card_h * 0.14)
+    fs_strip = max(10, min(base_fsize, 11))
+
+    parts = []
+    # Draw back-to-front so each sheet's top strip remains visible and readable top-to-bottom
+    for i, item_txt in enumerate(items):
+        cx_i = x + (n - 1 - i) * step_x
+        cy_i = y + i * step_y
+        by_i = cy_i + card_h - wy
+        d = (
+            f"M {cx_i:g},{cy_i:g} H {cx_i+card_w:g} V {by_i:g} "
+            f"Q {cx_i+card_w*0.75:g},{by_i-wy*1.1:g} {cx_i+card_w*0.5:g},{by_i:g} "
+            f"T {cx_i:g},{by_i:g} Z"
+        )
+        parts.append(f'<path d="{d}" {common}/>')
+        if i < n - 1:
+            ty = cy_i + step_y * 0.66
+            parts.append(
+                f'<text x="{cx_i + card_w / 2.0:g}" y="{ty:g}" text-anchor="middle" '
+                f'font-size="{fs_strip}" font-weight="600" fill="{fcol_attr}">'
+                f'{html.escape(item_txt)}</text>'
+            )
+        else:
+            ty = cy_i + (card_h - wy) / 2.0 + base_fsize * 0.36
+            parts.append(
+                f'<text x="{cx_i + card_w / 2.0:g}" y="{ty:g}" text-anchor="middle" '
+                f'font-size="{base_fsize}" font-weight="600" fill="{fcol_attr}">'
+                f'{html.escape(item_txt)}</text>'
+            )
+    return "".join(parts)
 
 
 def _rounded_polyline_d(pts, radius=6.0):
@@ -299,6 +399,69 @@ def _rounded_polyline_d(pts, radius=6.0):
         parts.append(f"L {a[0]:g},{a[1]:g} Q {p1[0]:g},{p1[1]:g} {b[0]:g},{b[1]:g}")
     parts.append(f"L {clean[-1][0]:g},{clean[-1][1]:g}")
     return " ".join(parts)
+
+
+def _longest_segment(pts):
+    """Return (index, a, b, length) of the longest segment in pts."""
+    best = (0, pts[0], pts[-1], 0.0)
+    for idx, (a, b) in enumerate(zip(pts, pts[1:])):
+        ln = math.hypot(b[0] - a[0], b[1] - a[1])
+        if ln > best[3]:
+            best = (idx, a, b, ln)
+    return best
+
+
+def _communication_link_d(pts):
+    """Build SVG path with ISO 5807:1985 §9.3.2.2 lightning/zigzag kink on longest segment."""
+    if len(pts) < 2:
+        return ""
+    idx, a, b, ln = _longest_segment(pts)
+    if ln < 32.0:
+        return _rounded_polyline_d(pts, radius=6.0)
+    ux, uy = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+    px, py = -uy, ux
+    mx, my = (a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0
+    span = min(12.0, ln * 0.16)
+    amp = 7.0
+    p_pre = (mx - ux * span, my - uy * span)
+    p_z1 = (mx - ux * (span * 0.25) + px * amp, my - uy * (span * 0.25) + py * amp)
+    p_z2 = (mx + ux * (span * 0.25) - px * amp, my + uy * (span * 0.25) - py * amp)
+    p_post = (mx + ux * span, my + uy * span)
+    new_pts = list(pts[:idx + 1]) + [p_pre, p_z1, p_z2, p_post] + list(pts[idx + 1:])
+    return _rounded_polyline_d(new_pts, radius=2.5)
+
+
+def _control_transfer_svg(pts, code_txt, stroke, bg_fill, sw):
+    """Render ISO 5807:1985 §9.3.2.1 control transfer triangle marker (P, T, I, etc.)."""
+    if len(pts) < 2:
+        return "", False
+    _, a, b, ln = _longest_segment(pts)
+    if ln < 12.0:
+        return "", False
+    ux, uy = (b[0] - a[0]) / ln, (b[1] - a[1]) / ln
+    px, py = -uy, ux
+    mx, my = (a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0
+    tip = (mx + ux * 13.0, my + uy * 13.0)
+    base_c = (mx - ux * 11.0, my - uy * 11.0)
+    b1 = (base_c[0] + px * 12.0, base_c[1] + py * 12.0)
+    b2 = (base_c[0] - px * 12.0, base_c[1] - py * 12.0)
+    tri_pts = f"{tip[0]:g},{tip[1]:g} {b1[0]:g},{b1[1]:g} {b2[0]:g},{b2[1]:g}"
+    clean_code = (code_txt or "").strip()
+    inside_code = bool(clean_code and len(clean_code) <= 3)
+    code_svg = ""
+    if inside_code:
+        tx = mx - ux * 2.5
+        ty = my - uy * 2.5 + 3.6
+        code_svg = (
+            f'<text x="{tx:g}" y="{ty:g}" text-anchor="middle" font-size="10" '
+            f'font-weight="700" fill="{stroke}">{html.escape(clean_code)}</text>'
+        )
+    marker = (
+        f'<g class="control-transfer-marker" data-code="{_esc_attr(clean_code)}">'
+        f'<polygon points="{tri_pts}" fill="{bg_fill}" stroke="{stroke}" stroke-width="{sw:g}" stroke-linejoin="round"/>'
+        f'{code_svg}</g>'
+    )
+    return marker, inside_code
 
 
 def _auto_orthogonal_points(p1, p2, ex_x, ex_y, en_x, en_y):
@@ -457,12 +620,14 @@ def render_page_svg(page_el):
                     max_x = max(max_x, wx + 60)
                     max_y = max(max_y, wy + 50)
 
-        pts = ([p_start] + wps + [p_end]) if wps else _auto_orthogonal_points(p_start, p_end, ex_x, ex_y, en_x, en_y)
+        raw_pts = ([p_start] + wps + [p_end]) if wps else _auto_orthogonal_points(p_start, p_end, ex_x, ex_y, en_x, en_y)
+        pts = [raw_pts[0]]
+        for p_cur in raw_pts[1:]:
+            if math.hypot(p_cur[0] - pts[-1][0], p_cur[1] - pts[-1][1]) > 0.5:
+                pts.append(p_cur)
         lbl_raw = c.get("value") or child_edge_labels.get(eid, "")
         resolved_edges.append((eid, st, pts, lbl_raw))
 
-    pw = max(int(float(model.get("pageWidth", 0) or 0)), int(math.ceil(max_x)))
-    ph = max(int(float(model.get("pageHeight", 0) or 0)), int(math.ceil(max_y)))
     # Trim excess blank page space while keeping clean 40px breathing room
     vw = max(480, int(math.ceil(max_x)))
     vh = max(320, int(math.ceil(max_y)))
@@ -490,7 +655,7 @@ def render_page_svg(page_el):
         lbl_lines = _strip_html_lines(c.get("value"))
         lbl_txt = " ".join(l["text"] for l in lbl_lines)
 
-        g_chunk = [f'<g data-cell-id="{_esc_attr(cid)}">']
+        g_chunk = [f'<g data-cell-id="{_esc_attr(cid)}" data-shape="swimlane">']
         if body_fill_raw and body_fill_raw != "none":
             g_chunk.append(f'<rect x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" fill="{body_fill}" stroke="none"/>')
         if horiz:
@@ -513,39 +678,73 @@ def render_page_svg(page_el):
         g_chunk.append("</g>")
         svg_parts.append("".join(g_chunk))
 
-    # 2. Render Edges (behind vertices labels, with arrowheads and pill badges)
+    # 2. Render Edges (supports startArrow + endArrow, control_transfer §9.3.2.1, communication_link §9.3.2.2)
     edge_labels_deferred = []
     for eid, st, pts, lbl_raw in resolved_edges:
         stroke_raw = st.get("strokeColor", "#2B373E")
         stroke = _esc_attr(stroke_raw)
         sw = float(st.get("strokeWidth", 1.5) or 1.5)
         dash = ' stroke-dasharray="5,4"' if st.get("dashed") == "1" else ""
-        d = _rounded_polyline_d(pts, radius=6.0)
+        iso_line = (st.get("isoLine") or "").strip().lower()
+        if iso_line == "communication_link":
+            d = _communication_link_d(pts)
+        else:
+            d = _rounded_polyline_d(pts, radius=6.0)
         if not d:
             continue
-        end_arrow = st.get("endArrow", "block")
-        arrow_svg = ""
-        if end_arrow != "none" and len(pts) >= 2:
-            apts = _arrow_polygon(pts[-2], pts[-1], size=max(7.5, sw * 4.6))
-            if apts:
-                arrow_svg = f'<polygon points="{apts}" fill="{stroke}"/>'
-        svg_parts.append(
-            f'<g data-cell-id="{_esc_attr(eid)}">'
-            f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{sw:g}" stroke-linecap="round"{dash}/>'
-            f'{arrow_svg}</g>'
-        )
+
+        start_arrow = (st.get("startArrow") or "none").strip()
+        end_arrow = (st.get("endArrow") or "block").strip()
+        start_fill = st.get("startFill", "1")
+        end_fill = st.get("endFill", "1")
+        arrow_size = max(7.5, sw * 4.6)
+
+        arrow_parts = []
+        if start_arrow and start_arrow.lower() != "none" and len(pts) >= 2:
+            apts_s = _arrow_polygon(pts[1], pts[0], size=arrow_size)
+            if apts_s:
+                afill = "none" if (start_fill == "0" or start_arrow.lower() == "open") else stroke
+                astrk = f' stroke="{stroke}" stroke-width="{sw:g}"' if afill == "none" else ""
+                arrow_parts.append(f'<polygon class="arrow-start" points="{apts_s}" fill="{afill}"{astrk}/>')
+        if end_arrow and end_arrow.lower() != "none" and len(pts) >= 2:
+            apts_e = _arrow_polygon(pts[-2], pts[-1], size=arrow_size)
+            if apts_e:
+                afill = "none" if (end_fill == "0" or end_arrow.lower() == "open") else stroke
+                astrk = f' stroke="{stroke}" stroke-width="{sw:g}"' if afill == "none" else ""
+                arrow_parts.append(f'<polygon class="arrow-end" points="{apts_e}" fill="{afill}"{astrk}/>')
+
         lbl_lines = _strip_html_lines(lbl_raw)
-        if lbl_lines:
-            lbl_txt = " ".join(l["text"] for l in lbl_lines)
-            # Place label near 35% along first non-tiny segment (ideal for Decision exits!)
+        lbl_txt = " ".join(l["text"] for l in lbl_lines) if lbl_lines else ""
+
+        marker_svg = ""
+        consumed_label = False
+        if iso_line == "control_transfer":
+            marker_svg, consumed_label = _control_transfer_svg(pts, lbl_txt, stroke, bg_esc, sw)
+
+        line_attr = f' data-iso-line="{_esc_attr(iso_line)}"' if iso_line else ""
+        svg_parts.append(
+            f'<g data-cell-id="{_esc_attr(eid)}" data-edge="1" '
+            f'data-start-arrow="{_esc_attr(start_arrow)}" data-end-arrow="{_esc_attr(end_arrow)}"{line_attr}>'
+            f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{sw:g}" stroke-linecap="round"{dash}/>'
+            f'{"".join(arrow_parts)}{marker_svg}</g>'
+        )
+
+        if lbl_txt and not consumed_label:
             seg_x, seg_y = (pts[0][0] + pts[-1][0]) / 2.0, (pts[0][1] + pts[-1][1]) / 2.0
-            for a_pt, b_pt in zip(pts, pts[1:]):
-                slen = math.hypot(b_pt[0] - a_pt[0], b_pt[1] - a_pt[1])
-                if slen >= 28:
-                    t = 0.44 if len(pts) == 2 else 0.5
-                    seg_x = a_pt[0] + (b_pt[0] - a_pt[0]) * t
-                    seg_y = a_pt[1] + (b_pt[1] - a_pt[1]) * t
-                    break
+            if st.get("isoStemBranch") == "1" and len(pts) >= 3:
+                # Place branch label cleanly on the individual target drop leg (ISO §10.3.1(b))
+                a_pt, b_pt = pts[-2], pts[-1]
+                seg_x = a_pt[0] + (b_pt[0] - a_pt[0]) * 0.48
+                seg_y = a_pt[1] + (b_pt[1] - a_pt[1]) * 0.48
+            else:
+                # Place label along first non-tiny segment (ideal for Decision exits!)
+                for a_pt, b_pt in zip(pts, pts[1:]):
+                    slen = math.hypot(b_pt[0] - a_pt[0], b_pt[1] - a_pt[1])
+                    if slen >= 28:
+                        t = 0.44 if len(pts) == 2 else 0.5
+                        seg_x = a_pt[0] + (b_pt[0] - a_pt[0]) * t
+                        seg_y = a_pt[1] + (b_pt[1] - a_pt[1]) * t
+                        break
             lbg = st.get("labelBackgroundColor", bg)
             if lbg == "none":
                 lbg = bg
@@ -554,13 +753,43 @@ def render_page_svg(page_el):
 
     # 3. Render Vertices & Multi-line Vietnamese Text
     for cid, c, st, kind, x, y, w, h in vertices:
-        shape_svg = _render_shape_svg(kind, x, y, w, h, st)
         base_fsize = int(float(st.get("fontSize", 12) or 12))
         base_fcol = st.get("fontColor", "#1C2327")
         is_bold_style = st.get("fontStyle") in ("1", "3")
         align = st.get("align", "left" if kind in ("annotation", "text") else "center")
 
+        overlay_items = _parse_overlay_items(st)
+        extra_g_attrs = f' data-shape="{_esc_attr(kind)}"'
+
+        if kind == "multi_document" and overlay_items and len(overlay_items) > 1:
+            shape_svg = _render_overlay_multi_doc(x, y, w, h, st, overlay_items, base_fsize, base_fcol)
+            extra_g_attrs += f' data-overlay-items="{_esc_attr(json.dumps(overlay_items, ensure_ascii=False))}"'
+            svg_parts.append(f'<g data-cell-id="{_esc_attr(cid)}"{extra_g_attrs}>{shape_svg}</g>')
+            continue
+
         rich = _strip_html_lines(c.get("value"))
+        plain_joined = " ".join(r["text"] for r in rich).strip()
+
+        if kind == "ellipsis":
+            has_caption = bool(plain_joined and plain_joined not in ("...", "…"))
+            dot_col = _esc_attr(base_fcol)
+            dot_y = y + (h * 0.34 if has_caption else h * 0.5)
+            cx_e = x + w / 2.0
+            shape_svg = (
+                f'<circle cx="{cx_e-14:g}" cy="{dot_y:g}" r="3.2" fill="{dot_col}"/>'
+                f'<circle cx="{cx_e:g}" cy="{dot_y:g}" r="3.2" fill="{dot_col}"/>'
+                f'<circle cx="{cx_e+14:g}" cy="{dot_y:g}" r="3.2" fill="{dot_col}"/>'
+            )
+            text_svg = ""
+            if has_caption:
+                text_svg = (
+                    f'<text x="{cx_e:g}" y="{y + h * 0.78:g}" text-anchor="middle" '
+                    f'font-size="11" font-weight="600" fill="{dot_col}">{html.escape(plain_joined)}</text>'
+                )
+            svg_parts.append(f'<g data-cell-id="{_esc_attr(cid)}"{extra_g_attrs}>{shape_svg}{text_svg}</g>')
+            continue
+
+        shape_svg = _render_shape_svg(kind, x, y, w, h, st)
         wrapped = _wrap_rich_lines(rich, w, base_fsize, kind) if kind != "text" else rich
 
         text_svg = ""
@@ -599,7 +828,7 @@ def render_page_svg(page_el):
                     )
             text_svg = f'<text text-anchor="{anchor}">{"".join(tspans)}</text>'
 
-        svg_parts.append(f'<g data-cell-id="{_esc_attr(cid)}">{shape_svg}{text_svg}</g>')
+        svg_parts.append(f'<g data-cell-id="{_esc_attr(cid)}"{extra_g_attrs}>{shape_svg}{text_svg}</g>')
 
     # 4. Render Edge Label Pills on top so lines never strike through Vietnamese text
     for lx, ly, ltxt, lbg, lcol in edge_labels_deferred:

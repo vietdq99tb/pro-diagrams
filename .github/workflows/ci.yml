@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }} (stdlib-only)
+    name: Python ${{ matrix.python-version }} (Linux stdlib + examples diff)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,28 +33,144 @@ jobs:
             exit 1
           fi
 
-      - name: Run 30 stdlib regression & adversarial tests
+      - name: Run 38 stdlib regression, adversarial & ISO 5807 Annex A-E tests
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v
 
-      - name: Verify runnable examples compile and pass strict validation
+      - name: Regenerate committed examples/ and verify zero drift + strict validation
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
+          mkdir -p /tmp/ci_examples/iso5807-payment-retry \
+                   /tmp/ci_examples/swimlane-rd-procurement \
+                   /tmp/ci_examples/waterfall-opex-2026
+
           python3 -B skills/pro-diagrams/scripts/iso5807_builder.py \
             examples/iso5807-payment-retry/spec.json \
-            -o /tmp/ci_retry.drawio --render-svg /tmp/ci_retry.svg --render-html /tmp/ci_retry.html
-          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py /tmp/ci_retry.drawio --strict --score
+            -o /tmp/ci_examples/iso5807-payment-retry/payment_retry.drawio \
+            --render-svg /tmp/ci_examples/iso5807-payment-retry/payment_retry.svg \
+            --render-html /tmp/ci_examples/iso5807-payment-retry/payment_retry.html
+          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py \
+            /tmp/ci_examples/iso5807-payment-retry/payment_retry.drawio --strict --score
 
           python3 -B skills/pro-diagrams/scripts/iso5807_builder.py \
             examples/swimlane-rd-procurement/spec.json \
-            -o /tmp/ci_proc.drawio --render-svg /tmp/ci_proc.svg --render-html /tmp/ci_proc.html --render-runbook /tmp/ci_proc_rb.html
-          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py /tmp/ci_proc.drawio --strict --score
+            -o /tmp/ci_examples/swimlane-rd-procurement/procurement.drawio \
+            --render-svg /tmp/ci_examples/swimlane-rd-procurement/procurement.svg \
+            --render-html /tmp/ci_examples/swimlane-rd-procurement/procurement.html \
+            --render-runbook /tmp/ci_examples/swimlane-rd-procurement/procurement_runbook.html
+          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py \
+            /tmp/ci_examples/swimlane-rd-procurement/procurement.drawio --strict --score
 
           python3 -B skills/pro-diagrams/scripts/chart_builder.py \
             examples/waterfall-opex-2026/spec.json \
-            -o /tmp/ci_wf.html --svg /tmp/ci_wf.svg
-          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_wf.html
-          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_wf.svg
+            -o /tmp/ci_examples/waterfall-opex-2026/waterfall_opex_2026.html \
+            --svg /tmp/ci_examples/waterfall-opex-2026/waterfall_opex_2026.svg
+          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_examples/waterfall-opex-2026/waterfall_opex_2026.html
+          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_examples/waterfall-opex-2026/waterfall_opex_2026.svg
+
+          for rel in \
+            iso5807-payment-retry/payment_retry.drawio \
+            iso5807-payment-retry/payment_retry.svg \
+            iso5807-payment-retry/payment_retry.html \
+            swimlane-rd-procurement/procurement.drawio \
+            swimlane-rd-procurement/procurement.svg \
+            swimlane-rd-procurement/procurement.html \
+            swimlane-rd-procurement/procurement_runbook.html \
+            waterfall-opex-2026/waterfall_opex_2026.html \
+            waterfall-opex-2026/waterfall_opex_2026.svg; do
+            diff -u "examples/$rel" "/tmp/ci_examples/$rel"
+          done
+          echo "All committed examples/ match freshly regenerated outputs byte-for-byte."
+
+  windows-package-smoke:
+    name: Windows PowerShell (.skill unpack + examples smoke)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Package pro-diagrams.skill, unpack via Expand-Archive, and run examples on Windows
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          PYTHONUTF8: "1"
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          python -B -c @"
+          import os, zipfile
+          src = 'skills/pro-diagrams'
+          out = 'pro-diagrams.skill'
+          excluded_dirs = {'__pycache__', 'evals', '.git'}
+          excluded_exts = {'.pyc', '.pyo'}
+          with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(src):
+                  dirs[:] = sorted(d for d in dirs if d not in excluded_dirs)
+                  for fn in sorted(files):
+                      if fn == '.DS_Store' or os.path.splitext(fn)[1] in excluded_exts:
+                          continue
+                      full = os.path.join(root, fn)
+                      arc = os.path.join('pro-diagrams', os.path.relpath(full, src)).replace('\\', '/')
+                      zf.write(full, arc)
+          "@
+
+          Copy-Item -Path "pro-diagrams.skill" -Destination "pro-diagrams.zip" -Force
+          Expand-Archive -Path "pro-diagrams.zip" -DestinationPath "unpacked" -Force
+
+          $skillDir = Join-Path (Get-Location) "unpacked\pro-diagrams"
+          $outDir = Join-Path $env:RUNNER_TEMP "pro_diagrams_win"
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          # 1. Run Swimlane SOP example + Runbook + strict validation
+          python -B "$skillDir\scripts\iso5807_builder.py" `
+            "examples\swimlane-rd-procurement\spec.json" `
+            -o "$outDir\procurement.drawio" `
+            --render-svg "$outDir\procurement.svg" `
+            --render-html "$outDir\procurement.html" `
+            --render-runbook "$outDir\procurement_runbook.html"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python -B "$skillDir\scripts\validate_iso5807.py" "$outDir\procurement.drawio" --strict --score
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # 2. Run Payment Retry example + strict validation
+          python -B "$skillDir\scripts\iso5807_builder.py" `
+            "examples\iso5807-payment-retry\spec.json" `
+            -o "$outDir\retry.drawio" `
+            --render-svg "$outDir\retry.svg"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python -B "$skillDir\scripts\validate_iso5807.py" "$outDir\retry.drawio" --strict --score
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # 3. Run Waterfall chart + data-* verification
+          python -B "$skillDir\scripts\chart_builder.py" `
+            "examples\waterfall-opex-2026\spec.json" `
+            -o "$outDir\waterfall.html" `
+            --svg "$outDir\waterfall.svg"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python -B "$skillDir\scripts\chart_verify.py" "$outDir\waterfall.html"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # 4. Run all 6 ISO 5807:1985 Annex A-E fixtures from the unpacked .skill
+          Get-ChildItem -Path "$skillDir\tests\fixtures\iso5807_annex\*.json" | ForEach-Object {
+            $base = $_.BaseName
+            python -B "$skillDir\scripts\iso5807_builder.py" $_.FullName `
+              -o "$outDir\$base.drawio" --render-svg "$outDir\$base.svg"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            python -B "$skillDir\scripts\validate_iso5807.py" "$outDir\$base.drawio" --strict --iso-only
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Write-Host "Windows PowerShell .skill unpack & full example/Annex A-E verification PASSED."

@@ -1,0 +1,302 @@
+{
+  "kind": "program-flowchart",
+  "title": "B(b) · Vòng lặp xử lý theo cấp",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "terminator",
+      "label": "Vào"
+    },
+    {
+      "id": "init",
+      "type": "process",
+      "label": "Khởi tạo và chọn lần đầu"
+    },
+    {
+      "id": "g_open",
+      "type": "loop_limit_start",
+      "label": "Tổng quát",
+      "loop_id": "Tổng quát"
+    },
+    {
+      "id": "n_init",
+      "type": "process",
+      "label": "Khởi tạo cấp n"
+    },
+    {
+      "id": "n_open",
+      "type": "loop_limit_start",
+      "label": "n",
+      "loop_id": "n"
+    },
+    {
+      "id": "n_level",
+      "type": "decision",
+      "label": "Cấp tệp"
+    },
+    {
+      "id": "n_normal",
+      "type": "process",
+      "label": "Xử lý và nhập cấp n"
+    },
+    {
+      "id": "l_init",
+      "type": "process",
+      "label": "Khởi tạo cấp l"
+    },
+    {
+      "id": "l_open",
+      "type": "loop_limit_start",
+      "label": "l",
+      "loop_id": "l"
+    },
+    {
+      "id": "l_level",
+      "type": "decision",
+      "label": "Cấp tệp"
+    },
+    {
+      "id": "l_normal",
+      "type": "process",
+      "label": "Xử lý và nhập cấp l"
+    },
+    {
+      "id": "one_init",
+      "type": "process",
+      "label": "Khởi tạo cấp 1"
+    },
+    {
+      "id": "one_open",
+      "type": "loop_limit_start",
+      "label": "1",
+      "loop_id": "1"
+    },
+    {
+      "id": "one_normal",
+      "type": "process",
+      "label": "Xử lý, nhập và chọn cấp 1"
+    },
+    {
+      "id": "one_close",
+      "type": "loop_limit_end",
+      "label": "1\nĐến khi thay đổi",
+      "loop_id": "1"
+    },
+    {
+      "id": "one_finish",
+      "type": "process",
+      "label": "Kết thúc cấp 1"
+    },
+    {
+      "id": "l_select",
+      "type": "process",
+      "label": "Chọn cấp l"
+    },
+    {
+      "id": "l_close",
+      "type": "loop_limit_end",
+      "label": "l\nĐến khi thay đổi",
+      "loop_id": "l"
+    },
+    {
+      "id": "l_finish",
+      "type": "process",
+      "label": "Kết thúc cấp l"
+    },
+    {
+      "id": "n_select",
+      "type": "process",
+      "label": "Chọn cấp n"
+    },
+    {
+      "id": "n_close",
+      "type": "loop_limit_end",
+      "label": "n\nĐến khi thay đổi",
+      "loop_id": "n"
+    },
+    {
+      "id": "n_finish",
+      "type": "process",
+      "label": "Kết thúc cấp n"
+    },
+    {
+      "id": "g_close",
+      "type": "loop_limit_end",
+      "label": "Tổng quát\nĐến khi thay đổi",
+      "loop_id": "Tổng quát"
+    },
+    {
+      "id": "finish",
+      "type": "process",
+      "label": "Kết thúc xử lý"
+    },
+    {
+      "id": "exit",
+      "type": "terminator",
+      "label": "Ra"
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "init",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "init",
+      "to": "g_open",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "g_open",
+      "to": "n_init",
+      "label": "",
+      "id": "flow03"
+    },
+    {
+      "from": "n_init",
+      "to": "n_open",
+      "label": "",
+      "id": "flow04"
+    },
+    {
+      "from": "n_open",
+      "to": "n_level",
+      "label": "",
+      "id": "flow05"
+    },
+    {
+      "from": "n_level",
+      "to": "n_normal",
+      "label": "n",
+      "id": "flow06"
+    },
+    {
+      "from": "n_level",
+      "to": "l_init",
+      "label": "< n",
+      "dashed": true,
+      "id": "flow07"
+    },
+    {
+      "from": "l_init",
+      "to": "l_open",
+      "label": "",
+      "id": "flow08"
+    },
+    {
+      "from": "l_open",
+      "to": "l_level",
+      "label": "",
+      "id": "flow09"
+    },
+    {
+      "from": "l_level",
+      "to": "l_normal",
+      "label": "l",
+      "id": "flow10"
+    },
+    {
+      "from": "l_level",
+      "to": "one_init",
+      "label": "= 1",
+      "dashed": true,
+      "id": "flow11"
+    },
+    {
+      "from": "one_init",
+      "to": "one_open",
+      "label": "",
+      "id": "flow12"
+    },
+    {
+      "from": "one_open",
+      "to": "one_normal",
+      "label": "",
+      "id": "flow13"
+    },
+    {
+      "from": "one_normal",
+      "to": "one_close",
+      "label": "",
+      "id": "flow14"
+    },
+    {
+      "from": "one_close",
+      "to": "one_finish",
+      "label": "",
+      "id": "flow15"
+    },
+    {
+      "from": "one_finish",
+      "to": "l_select",
+      "label": "",
+      "dashed": true,
+      "id": "flow16"
+    },
+    {
+      "from": "l_normal",
+      "to": "l_select",
+      "label": "",
+      "id": "flow17"
+    },
+    {
+      "from": "l_select",
+      "to": "l_close",
+      "label": "",
+      "id": "flow18"
+    },
+    {
+      "from": "l_close",
+      "to": "l_finish",
+      "label": "",
+      "id": "flow19"
+    },
+    {
+      "from": "l_finish",
+      "to": "n_select",
+      "label": "",
+      "dashed": true,
+      "id": "flow20"
+    },
+    {
+      "from": "n_normal",
+      "to": "n_select",
+      "label": "",
+      "id": "flow21"
+    },
+    {
+      "from": "n_select",
+      "to": "n_close",
+      "label": "",
+      "id": "flow22"
+    },
+    {
+      "from": "n_close",
+      "to": "n_finish",
+      "label": "",
+      "id": "flow23"
+    },
+    {
+      "from": "n_finish",
+      "to": "g_close",
+      "label": "",
+      "id": "flow24"
+    },
+    {
+      "from": "g_close",
+      "to": "finish",
+      "label": "",
+      "id": "flow25"
+    },
+    {
+      "from": "finish",
+      "to": "exit",
+      "label": "",
+      "id": "flow26"
+    }
+  ]
+}

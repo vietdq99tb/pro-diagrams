@@ -26,7 +26,7 @@ In Vietnamese and technical communication, *"sơ đồ"* and *"đồ thị"* spa
 | User Intent | Track | Read Reference(s) | Primary Script Pipeline (`scripts/`) | Deliverables |
 |---|---|---|---|---|
 | **Vague / Underspecified Diagram or Chart Goal** | `discovery` | `references/discovery-and-elicitation.md` | 1-round targeted clarification (2–5 questions + chart-type recommendation) → proceed to matching track below | Confirmed spec / brief |
-| **Process / Algorithm Flowchart (ISO 5807:1985)** | `iso5807-flowchart` | `references/iso-5807-standard.md`, `references/theme-atelier-tech-warm.md` | `iso5807_builder.py` → `validate_iso5807.py --strict --score` | `.drawio` + `.svg` + `.html` viewer |
+| **ISO 5807:1985 Diagrams (§4–§8): Data (`A`), Program (`B`), System (`C`), Program Network (`D`), System Resources (`E`)** | `iso5807-flowchart` | `references/iso-5807-standard.md`, `references/theme-atelier-tech-warm.md` | `iso5807_builder.py` (`kind: data-flowchart \| program-flowchart \| system-flowchart \| program-network \| system-resources`) → `validate_iso5807.py --strict --score` | `.drawio` + `.svg` + `.html` viewer |
 | **ISO 5807 Cross-Functional Swimlane SOP** | `swimlane-sop` | `references/swimlane-and-sop.md`, `references/iso-5807-standard.md`, `references/theme-atelier-tech-warm.md` | `iso5807_builder.py` → `validate_iso5807.py --strict --score` → **mandatory** `--render-runbook` / `runbook.py` whenever user requests SOP runbook / interactive walkthrough | `.drawio` + `.svg` + `.html` + `_runbook.html` |
 | **Topological / Network Graph & CPM Critical Path** | `topological-graph` | `references/topological-graphs.md`, `references/theme-atelier-tech-warm.md` | `iso5807_builder.py` (`kind: "topological-graph"` or `"cpm"`) → `validate.py --score` | `.drawio` + `.svg` + `.html` |
 | **Quantitative / Statistical / KPI Chart** | `quantitative-chart` | `references/quantitative-and-math-charts.md`, `references/theme-atelier-tech-warm.md` | `chart_builder.py` → `chart_verify.py` | Self-contained `.html` + PowerPoint-ready `.svg` |
@@ -54,11 +54,14 @@ Unless the user explicitly requests dark mode (`--preset tech-warm-dark` / `--th
 
 ## 4. Core Execution Loop (Compile → Validate → Render → Self-Fix `<= 2` Rounds)
 
-### Track 1: Flowcharts (ISO 5807), Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`)
+### Track 1: Flowcharts (ISO 5807 §4–§8), Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`)
 
-Why use the JSON compiler instead of hand-guessing coordinates first? Hand-written coordinates frequently clip Vietnamese text, omit decision labels, or route edges across sibling boxes. `iso5807_builder.py` computes topological ranks, barycenter ordering, Swimlane coordinates, CPM slack, and orthogonal outer-corridor loop waypoints deterministically, while outputting standard uncompressed `.drawio` XML that opens cleanly in diagrams.net / VS Code.
+Why use the JSON compiler instead of hand-guessing coordinates first? Hand-written coordinates frequently clip Vietnamese text, omit decision labels, or route edges across sibling boxes. `iso5807_builder.py` computes topological ranks, barycenter ordering, Swimlane coordinates, CPM slack (only when `kind: "cpm"` or `"compute_cpm": true`), single-stem Decision fan-outs (§10.3.1(b)), and orthogonal outer-corridor loop waypoints deterministically, outputting uncompressed `.drawio` XML that opens cleanly in diagrams.net / VS Code.
 
-1. **Author the JSON spec** following `references/iso-5807-standard.md` (or `swimlane-and-sop.md` / `topological-graphs.md`). Map every step to its exact ISO 5807 symbol (all 23 keys: `terminator`, `process`, `decision`, `data`, `predefined_process`, `document`, `multi_document`, `database`, `direct_data`, `stored_data`, `sequential_data`, `internal_storage`, `preparation`, `manual_operation`, `manual_input`, `on_page_connector`, `off_page_connector`, `loop_limit_start`, `loop_limit_end`, `delay`, `display`, `parallel_mode`, `annotation`).
+1. **Choose the ISO 5807:1985 diagram type (§4–§8) and author the JSON spec** following `references/iso-5807-standard.md` (or `swimlane-and-sop.md` / `topological-graphs.md`):
+   - **Chart types (`kind`):** `data-flowchart` (§4, Annex A), `program-flowchart` / `iso5807-flowchart` (§5, Annex B), `system-flowchart` (§6, Annex C), `program-network` (§7, Annex D), `system-resources` (§8, Annex E), `swimlane`, `topological-graph`, `cpm`. Multi-page diagrams use `"pages": [...]` with cross-page `on_page_connector` + `"ref_page"` (§10.2.2).
+   - **26 node symbols (§9 & §11):** 24 standard ISO 5807:1985 keys (`terminator`, `process`, `decision`, `data`, `predefined_process`, `document`, `multi_document` with optional §10.3.2 `"items": [...]`, `database`, `direct_data`, `stored_data`, `sequential_data`, `internal_storage`, `card`, `paper_tape`, `preparation`, `manual_operation`, `manual_input`, `on_page_connector`, `loop_limit_start` / `loop_limit_end` with `"loop_id"`, `display`, `parallel_mode`, `annotation`, `ellipsis`) plus 2 explicitly marked practical extensions (`delay`, `off_page_connector`).
+   - **4 ISO line types (§9.3):** standard flowline, bidirectional read/write (`"bidirectional": true` / `"arrows": "both"`), control transfer (`"role": "control_transfer"`, label `"P"` / `"T"` / `"I"`), communication link (`"role": "communication_link"`), and dashed alternative (`"role": "alternative"`).
 2. **Compile `.drawio` AND standalone `.svg` + `.html` previews in one step — `--render-runbook` is MANDATORY whenever the user asks for an interactive SOP runbook or step-by-step walkthrough (`"hướng dẫn vận hành tương tác"` / `"runbook"`):**
    ```bash
    python3 <skill-dir>/scripts/iso5807_builder.py spec.json \
@@ -69,7 +72,7 @@ Why use the JSON compiler instead of hand-guessing coordinates first? Hand-writt
    ```
    *(If `drawio` desktop CLI is also installed on the host and raster PNG/PDF with embedded XML is requested, locate the binary via `drawio_cli.py`, export with `drawio -x -f png -e -o diagram.drawio.png diagram.drawio`, and run `repair_png.py diagram.drawio.png`; otherwise `drawio_render_svg.py` also supports `--png diagram.png` via headless Chrome when available.)*
 3. **Run the deterministic validator:**
-   - For ISO 5807 flowcharts & swimlanes:
+   - For all 5 ISO 5807:1985 chart types & swimlanes (auto-detects `isoDiagramType`, or override via `--diagram-type`; add `--iso-only` to gate purely on ISO compliance separately from layout/contrast warnings):
      ```bash
      python3 <skill-dir>/scripts/validate_iso5807.py diagram.drawio --strict --score
      ```
@@ -77,7 +80,7 @@ Why use the JSON compiler instead of hand-guessing coordinates first? Hand-writt
      ```bash
      python3 <skill-dir>/scripts/validate.py diagram.drawio --score
      ```
-4. **Self-fix if needed (`<= 2` rounds):** If any `E-*` or `W-*` finding appears, run with `--json` to inspect `supportedFixes[]`, update the JSON spec (or run `edgeports.py` if editing XML directly), and re-render until `0 error(s)`.
+4. **Self-fix if needed (`<= 2` rounds):** If any `E-*` or `W-*` finding appears, run with `--json` to inspect `summary`, `iso_compliant`, and `supportedFixes[]`, update the JSON spec (or run `edgeports.py` if editing XML directly), and re-render until `0 error(s)`.
 
 ### Track 2: Quantitative Charts & Mathematical Function Plots
 

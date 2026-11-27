@@ -1,0 +1,126 @@
+{
+  "kind": "program-flowchart",
+  "title": "B(a) · Đọc, ghi và thử lại",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "terminator",
+      "label": "Bắt đầu"
+    },
+    {
+      "id": "math",
+      "type": "process",
+      "label": "Tính toán"
+    },
+    {
+      "id": "restart",
+      "type": "terminator",
+      "label": "Khởi động lại"
+    },
+    {
+      "id": "write",
+      "type": "process",
+      "label": "Chuyển kết quả vào bộ nhớ"
+    },
+    {
+      "id": "ok_write",
+      "type": "decision",
+      "label": "Ghi thành công?"
+    },
+    {
+      "id": "fault",
+      "type": "terminator",
+      "label": "Dừng do lỗi"
+    },
+    {
+      "id": "read",
+      "type": "process",
+      "label": "Đọc kết quả từ bộ nhớ"
+    },
+    {
+      "id": "ok_read",
+      "type": "decision",
+      "label": "Đọc thành công?"
+    },
+    {
+      "id": "check",
+      "type": "predefined_process",
+      "label": "Kiểm tra truyền"
+    },
+    {
+      "id": "stop",
+      "type": "terminator",
+      "label": "Kết thúc"
+    },
+    {
+      "id": "restart_note",
+      "type": "annotation",
+      "attach_to": "fault",
+      "label": "Khởi động thủ công để thử lại tại điểm lỗi"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "math",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "math",
+      "to": "write",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "write",
+      "to": "ok_write",
+      "label": "",
+      "id": "flow03"
+    },
+    {
+      "from": "restart",
+      "to": "write",
+      "label": "",
+      "id": "flow04"
+    },
+    {
+      "from": "ok_write",
+      "to": "fault",
+      "label": "Không",
+      "role": "error",
+      "id": "flow05"
+    },
+    {
+      "from": "ok_write",
+      "to": "read",
+      "label": "Có",
+      "id": "flow06"
+    },
+    {
+      "from": "read",
+      "to": "ok_read",
+      "label": "",
+      "id": "flow07"
+    },
+    {
+      "from": "ok_read",
+      "to": "stop",
+      "label": "Có",
+      "id": "flow08"
+    },
+    {
+      "from": "ok_read",
+      "to": "check",
+      "label": "Không",
+      "id": "flow09"
+    },
+    {
+      "from": "check",
+      "to": "read",
+      "label": "",
+      "id": "flow10"
+    }
+  ]
+}

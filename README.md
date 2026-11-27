@@ -14,11 +14,12 @@ Built with the **Atelier Technical Warm** palette (WCAG AA/AAA verified) and **O
 ## Key Capabilities
 
 - **Smart Intake & Targeted Discovery (`references/discovery-and-elicitation.md`):** Triages prompt completeness automatically — builds immediately when a full spec is supplied, inspects attached source files first, or asks **1 concise round (2–5 high-leverage questions with recommended defaults)** when facts/numbers are missing. Never fabricates real business metrics, approval thresholds, or SLA values.
-- **Track 1 — ISO 5807 Flowcharts, Cross-Functional Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`):**
-  - All **23 ISO 5807:1985 & standard extension symbols** (`terminator`, `process`, `decision`, `data`, `predefined_process`, `document`, `multi_document`, `database`, `direct_data`, `stored_data`, `sequential_data`, `internal_storage`, `preparation`, `manual_operation`, `manual_input`, `on_page_connector`, `off_page_connector`, `loop_limit_start`/`end`, `delay`, `display`, `parallel_mode`, `annotation`) with verified `ISO 5807:1985 §9.x / §10.x` clause mappings.
-  - **Strict upfront JSON schema & DAG validation (`iso5807_builder.py`):** Rejects typos in node `type`, dangling edge `from`/`to` IDs, unknown `lane`/`slot`/`attach_to` IDs, and **cyclic CPM dependencies** before layout — while still routing retry loops cleanly in ISO 5807 flowcharts & swimlanes (`score: 0`).
-  - **12-rule ISO 5807:1985, Swimlane & WCAG AA validator (`validate_iso5807.py`):** Includes `E-ISO-DECISION-ENTRY` (`§9.2.2.4` single-entrance rule) and maps every diagnostic in `diagnostics[]` + `supportedFixes[]` to its exact standard clause.
-  - Pure-Python `.drawio` → standalone `.svg` / interactive `.html` viewer (`drawio_render_svg.py`, `drawiohtml.py`), step-by-step **SOP Runbook** (`runbook.py`), bilingual layout-preserving translation (`relabel.py`), lossless Light↔Dark re-theming (`restyle.py`), Mermaid export (`drawio2mermaid.py`), and 10,446-shape Draw.io search (`shapesearch.py`).
+- **Track 1 — ISO 5807:1985 Diagrams (§4–§11), Cross-Functional Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`):**
+  - **All 5 ISO 5807:1985 chart types (§4–§8) verified against official Annex A–E:** `data-flowchart` (§4, Annex A), `program-flowchart` / `iso5807-flowchart` (§5, Annex B(a)/B(b)), `system-flowchart` (§6, Annex C), `program-network` (§7, Annex D), and `system-resources` (§8, Annex E) — plus **ISO 5807 cross-functional Swimlanes** and **CPM / DAG networks**.
+  - **26 node symbols + 4 ISO §9.3 line types (`data/iso5807-shapes.json`):** 24 ISO 5807:1985 symbols (including `card` §9.1.2.6, `paper_tape` §9.1.2.7, `ellipsis` §9.4.4, and §10.3.2 stacked `multi_document` per-layer `"items": [...]`) + 2 explicitly marked extensions (`delay`, `off_page_connector`); bidirectional read/write lines (`startArrow` + `endArrow` in `.drawio` & `.svg`), Control Transfer `P`/`T`/`I` triangles (§9.3.2.1), Communication Link zigzags (§9.3.2.2), and single-stem Decision fan-outs (§10.3.1(b)).
+  - **Strict upfront JSON schema & DAG validation (`iso5807_builder.py`):** Rejects typos in node `type`, dangling edge `from`/`to`, unknown `lane`/`slot`/`attach_to`, and post-trim duplicate whitespace lane IDs. Runs CPM only when `kind == "cpm"` or `"compute_cpm": true` (so SOP `duration` fields never trigger false CPM errors, while circular CPM networks still abort cleanly).
+  - **Diagram-type-aware ISO 5807 validator (`validate_iso5807.py`):** Rejects blank/chrome-only pages (`E-ISO-EMPTY`), checks single-entrance Decisions (`E-ISO-DECISION-ENTRY` §9.2.2.4), treats `>3`-exit Decisions as advisory layout hints (`I-LAYOUT-DECISION-FANOUT`), verifies Loop Limit start–end pairs per `loop_id` (`E-ISO-LOOP-PAIR` §9.2.2.6), pairs cross-page connectors & page references across `<diagram>` pages (§9.4.1 / §10.2.2), and separates `iso_compliant` from layout/WCAG contrast warnings (`--diagram-type`, `--iso-only`).
+  - Pure-Python `.drawio` → standalone `.svg` / interactive `.html` viewer (`drawio_render_svg.py`, `drawiohtml.py`) verified with strict `.drawio` ↔ `.svg` parity, step-by-step **SOP Runbook** (`runbook.py`), bilingual layout-preserving translation (`relabel.py`), lossless Light↔Dark re-theming (`restyle.py`), Mermaid export (`drawio2mermaid.py`), and 10,446-shape Draw.io search (`shapesearch.py`).
 - **Track 2 — Quantitative Charts & Mathematical Function Plots (`HTML` + `SVG`):**
   - **6 quantitative chart types** (`bar`, `grouped_bar`, `horizontal_bar` with diverging negative baseline, `line`, `waterfall`, `sankey`) with KPI summary cards (`chart_builder.py`).
   - Automated **`data-*` mathematical honesty & WCAG 2.1 AA verifier** (`chart_verify.py`) checking bar/waterfall proportionality (`<= 3%`), linear line `cy` fidelity, Sankey internal-node flow conservation, and sRGB text contrast.
@@ -31,10 +32,10 @@ Built with the **Atelier Technical Warm** palette (WCAG AA/AAA verified) and **O
 | Slot | Fill (Light) | Stroke (Light) | Text Contrast | Primary Semantic Role |
 |---|---|---|---|---|
 | **Canvas / Surface** | `#F8F6F2` / `#FFFFFF` | `#C9D2D8` | `14.75:1` AAA | Warm Porcelain page & clean white card surfaces |
-| **`neutral`** | `#FFFFFF` | `#4A5860` | `15.92:1` AAA | `Process`, `Preparation`, `Loop Limit`, `Annotation` |
+| **`neutral`** | `#FFFFFF` | `#4A5860` | `15.92:1` AAA | `Process`, `Preparation`, `Loop Limit`, `Annotation`, `Ellipsis` |
 | **`primary`** | `#EEF2F5` | `#2B373E` | `14.14:1` AAA | `Terminator`, `Predefined Process`, `Connector`, `Parallel Mode` |
 | **`accent`** | `#FDF1EE` | `#AD4333` | `14.40:1` AAA | `Decision` diamonds, CPM Critical Path (`TF=0`), Focal KPI |
-| **`secondary`** | `#EDF3F6` | `#395E73` | `14.22:1` AAA | `Data I/O`, `Database`, Storage symbols, `Display` |
+| **`secondary`** | `#EDF3F6` | `#395E73` | `14.22:1` AAA | `Data I/O`, `Database`, Storage, `Card`, `Paper Tape`, `Display` |
 | **`warning`** | `#FAF4EA` | `#8C5D2B` | `14.55:1` AAA | `Document`, `Manual Operation`, `Manual Input`, `Delay` |
 | **`danger`** | `#FCECEB` | `#9E2F2C` | `13.90:1` AAA | Critical error / exception termination |
 | **`success`** | `#EEF4F1` | `#2D6A5B` | `14.29:1` AAA | Restrained positive `+Δ` chart indicators |
@@ -45,7 +46,7 @@ Includes matching dark mode (`tech-warm-dark`), accessible Okabe-Ito (`colorblin
 
 ## Ready-to-Run Examples (`examples/`)
 
-Every example below includes the input `spec.json` plus pre-rendered, strictly validated outputs:
+Every example below includes the input `spec.json` plus pre-rendered, strictly validated outputs (CI regenerates and diffs every committed file byte-for-byte):
 
 | Example | Track | Input Spec | Verified Outputs |
 |---|---|---|---|
@@ -72,7 +73,7 @@ cp -r pro-diagrams/skills/pro-diagrams ~/.claude/skills/pro-diagrams
 # cp -r pro-diagrams/skills/pro-diagrams .agents/skills/pro-diagrams
 ```
 
-For Claude Desktop or offline ZIP import, download `pro-diagrams.skill` from [GitHub Releases](https://github.com/vietdq99tb/pro-diagrams/releases) (or package locally via `(cd pro-diagrams/skills && zip -r ../../pro-diagrams.skill pro-diagrams)`). See [`skills/pro-diagrams/INSTALL_GUIDE.md`](skills/pro-diagrams/INSTALL_GUIDE.md) for Vietnamese setup and CLI recipes.
+For Claude Desktop, Windows PowerShell, or offline ZIP import, download `pro-diagrams.skill` from [GitHub Releases](https://github.com/vietdq99tb/pro-diagrams/releases) (Windows PowerShell: `Copy-Item pro-diagrams.skill pro-diagrams.zip; Expand-Archive pro-diagrams.zip -DestinationPath "$env:USERPROFILE\.claude\skills" -Force`). See [`skills/pro-diagrams/INSTALL_GUIDE.md`](skills/pro-diagrams/INSTALL_GUIDE.md) for full Vietnamese setup and CLI recipes.
 
 ---
 
@@ -81,7 +82,7 @@ For Claude Desktop or offline ZIP import, download `pro-diagrams.skill` from [Gi
 Run directly from a fresh clone using the bundled examples:
 
 ```bash
-# 1. Run all 30 unit & adversarial regression tests (Python 3 stdlib only)
+# 1. Run all 38 unit, adversarial & ISO 5807:1985 Annex A-E regression tests (Python 3 stdlib only)
 PYTHONDONTWRITEBYTECODE=1 python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v
 
 # 2. Compile the 4-lane ISO 5807 Swimlane SOP -> .drawio + .svg + interactive .html + SOP Runbook
@@ -92,7 +93,7 @@ python3 skills/pro-diagrams/scripts/iso5807_builder.py \
   --render-html /tmp/procurement.html \
   --render-runbook /tmp/procurement_runbook.html
 
-# 3. Validate strictly against all 12 ISO 5807:1985, Swimlane & WCAG AA rules
+# 3. Validate strictly against ISO 5807:1985 (§4–§11), Swimlane & WCAG AA rules
 python3 skills/pro-diagrams/scripts/validate_iso5807.py /tmp/procurement.drawio --strict --score
 
 # 4. Build & verify the 2026 OpEx Waterfall chart (data-* mathematical honesty)
@@ -111,7 +112,9 @@ pro-diagrams/
 ├── README.md
 ├── README.vi.md
 ├── LICENSE
-├── .github/workflows/ci.yml
+├── .github/workflows/
+│   ├── ci.yml                    # Linux Python 3.11/3.12 (38 tests + examples/ diff) & Windows PowerShell .skill test
+│   └── release.yml               # Automated GitHub Release packaging pro-diagrams.skill on v* tags
 ├── examples/
 │   ├── iso5807-payment-retry/    # Runnable ISO 5807 flowchart (spec.json + .drawio + .svg + .html)
 │   ├── swimlane-rd-procurement/  # Runnable 4-lane ISO 5807 Swimlane SOP + interactive Runbook
@@ -120,12 +123,12 @@ pro-diagrams/
     ├── SKILL.md                  # Main router (progressive disclosure)
     ├── INSTALL_GUIDE.md          # Vietnamese installation & CLI guide
     ├── LICENSE                   # MIT + Third-Party Notices
-    ├── data/                     # ISO 5807 §9.x catalog, theme tokens, Draw.io index + APACHE-2.0.txt
+    ├── data/                     # ISO 5807 §4–§11 catalog (26 symbols + 4 lines), theme tokens, Draw.io index + APACHE-2.0.txt
     ├── references/               # 7 focused reference docs (incl. discovery-and-elicitation.md)
     ├── scripts/                  # 20 zero-dependency Python 3 stdlib scripts
     ├── styles/                   # JSON schema + 4 built-in presets
     ├── evals/                    # Benchmark prompt suite
-    └── tests/                    # 30 comprehensive unit & adversarial tests
+    └── tests/                    # 38 comprehensive unit, adversarial & Annex A–E regression tests
 ```
 
 ---

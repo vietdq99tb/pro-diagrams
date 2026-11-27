@@ -2,10 +2,13 @@
 """Deterministic compiler from JSON diagram specs to uncompressed .drawio XML.
 
 Supports:
-  - kind: "iso5807-flowchart" (all 23 ISO 5807:1985 + standard symbols, auto layout & routing)
-  - kind: "swimlane"          (cross-functional Pool + horizontal/vertical Swimlanes, no node/col cap)
+  - ISO 5807:1985 §4–§8 chart types:
+      "data-flowchart" (§4), "program-flowchart" / "iso5807-flowchart" (§5),
+      "system-flowchart" (§6), "program-network" (§7), "system-resources" (§8)
+  - kind: "swimlane"          (ISO 5807 cross-functional Pool + horizontal/vertical Swimlanes)
   - kind: "topological-graph" (DAG, dependency network, tree, state graph)
-  - kind: "cpm"               (Critical Path Method network with auto ES/EF/LS/LF/TF & Terracotta critical path)
+  - kind: "cpm"               (Critical Path Method DAG with auto ES/EF/LS/LF/TF & Terracotta critical path)
+  - Multi-page specs ("pages": [...]) with cross-page connectors (§9.4.1 / §10.2.2)
 
 Applies the 'Atelier Technical Warm' ('tech-warm-light' / 'tech-warm-dark') design system,
 Open Sans Vietnamese typography sizing, 10px grid snapping, and collision-free orthogonal waypoints.
@@ -21,15 +24,49 @@ import math
 import os
 import sys
 import textwrap
+import urllib.parse
 import xml.etree.ElementTree as ET
 from collections import defaultdict, deque
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(HERE)
 
-VALID_KINDS = ("iso5807-flowchart", "swimlane", "topological-graph", "cpm")
+VALID_KINDS = (
+    "iso5807-flowchart",
+    "data-flowchart",
+    "program-flowchart",
+    "system-flowchart",
+    "program-network",
+    "system-resources",
+    "swimlane",
+    "topological-graph",
+    "cpm",
+)
+ISO_DIAGRAM_TYPE_MAP = {
+    "iso5807-flowchart": "program-flowchart",
+    "data-flowchart": "data-flowchart",
+    "program-flowchart": "program-flowchart",
+    "system-flowchart": "system-flowchart",
+    "program-network": "program-network",
+    "system-resources": "system-resources",
+    "swimlane": "swimlane",
+    "topological-graph": "topological-graph",
+    "cpm": "cpm",
+}
 VALID_DIRECTIONS = ("TB", "LR")
-VALID_EDGE_ROLES = ("", "normal", "default", "error", "critical")
+VALID_EDGE_ROLES = (
+    "",
+    "normal",
+    "default",
+    "error",
+    "critical",
+    "control_transfer",
+    "communication_link",
+    "alternative",
+    "data",
+    "control",
+)
+VALID_EDGE_ARROWS = ("", "end", "both", "start", "none")
 
 
 def _suggest_match(value, valid_values):
@@ -60,7 +97,7 @@ def _wrap_lines(label, max_chars=22):
     return out or [""]
 
 
-def _measure_node_box(sym_key, label, sym_catalog):
+def _measure_node_box(sym_key, label, sym_catalog, overlay_items=None):
     if sym_key not in sym_catalog:
         raise ValueError(f"unknown ISO 5807 symbol type {sym_key!r}")
     info = sym_catalog[sym_key]
@@ -71,6 +108,20 @@ def _measure_node_box(sym_key, label, sym_catalog):
         return _snap(dw), _snap(dh)
     if sym_key == "off_page_connector":
         return _snap(max(dw, 70)), _snap(max(dh, 60))
+    if sym_key == "ellipsis":
+        lbl_s = str(label or "").strip()
+        if not lbl_s or lbl_s in ("...", "…"):
+            return _snap(dw), _snap(dh)
+        return _snap(max(dw, min(len(lbl_s) * 7.5 + 24, 180))), _snap(max(dh, 56))
+
+    if overlay_items and len(overlay_items) > 1:
+        n_layers = len(overlay_items)
+        longest = max(len(str(it).strip()) for it in overlay_items)
+        extra_x = 18 * (n_layers - 1)
+        extra_y = 24 * (n_layers - 1)
+        w = _snap(max(dw + extra_x, min(longest * 7.4 + 36 + extra_x, 300)))
+        h = _snap(max(dh + extra_y, 64 + extra_y))
+        return w, h
 
     max_chars = 18 if sym_key == "decision" else 24
     lines = _wrap_lines(label, max_chars=max_chars)
@@ -79,8 +130,8 @@ def _measure_node_box(sym_key, label, sym_catalog):
 
     # Open Sans 12px Vietnamese width & stacked-diacritic height allowance
     px_per_char = 7.4
-    pad_x = 46 if sym_key == "decision" else (34 if sym_key in ("data", "preparation", "predefined_process", "manual_operation") else 24)
-    pad_y = 38 if sym_key == "decision" else (28 if sym_key == "database" else 22)
+    pad_x = 46 if sym_key == "decision" else (34 if sym_key in ("data", "preparation", "predefined_process", "manual_operation", "card", "paper_tape") else 24)
+    pad_y = 38 if sym_key == "decision" else (28 if sym_key in ("database", "paper_tape") else 22)
     line_h = 19
 
     calc_w = longest * px_per_char + pad_x
@@ -508,8 +559,8 @@ def _dedupe_waypoints(waypoints):
     return clean
 
 
-def compile_spec_to_drawio(spec, preset_name=None):
-    """Compile a dict spec into an uncompressed .drawio XML ElementTree."""
+def _compile_page_element(spec, preset_name=None, page_index=1):
+    """Compile one page spec dict into a <diagram> Element."""
     if not isinstance(spec, dict):
         raise ValueError("spec must be a JSON object")
     raw_nodes_in = spec.get("nodes")
@@ -553,7 +604,8 @@ def compile_spec_to_drawio(spec, preset_name=None):
     raw_dir = spec.get("direction")
     if raw_dir is not None and not isinstance(raw_dir, str):
         raise ValueError(f"invalid spec field 'direction': expected string, got {type(raw_dir).__name__}")
-    direction = (raw_dir or ("LR" if kind in ("cpm", "topological-graph") else "TB")).strip().upper()
+    default_dir = "LR" if kind in ("cpm", "topological-graph", "program-network") else "TB"
+    direction = (raw_dir or default_dir).strip().upper()
     if direction not in VALID_DIRECTIONS:
         raise ValueError(
             f"invalid spec field 'direction': {raw_dir!r}; valid values: {', '.join(VALID_DIRECTIONS)}"
@@ -566,19 +618,20 @@ def compile_spec_to_drawio(spec, preset_name=None):
     raw_lanes = spec.get("lanes")
     if raw_lanes is not None and not isinstance(raw_lanes, list):
         raise ValueError("spec field 'lanes' must be a JSON list")
-    lanes_spec = list(raw_lanes or [])
-    if kind == "swimlane" and not lanes_spec:
+    raw_lanes_list = list(raw_lanes or [])
+    if kind == "swimlane" and not raw_lanes_list:
         raise ValueError("spec with kind='swimlane' must define a non-empty 'lanes' list")
-    has_swimlanes = (kind == "swimlane") or bool(lanes_spec)
+    has_swimlanes = (kind == "swimlane") or bool(raw_lanes_list)
 
-    # Reserve all structural, lane, and node IDs BEFORE assigning edge IDs (prevents E-DUP-ID)
+    # Normalize & reserve all structural, lane, and node IDs ONCE before assigning edge IDs
     used_ids = {"0", "1", "title_banner"}
+    lanes_spec = []
     lane_ids = []
     lane_id_set = set()
-    if has_swimlanes and lanes_spec:
+    if has_swimlanes and raw_lanes_list:
         if spec.get("pool_title"):
             used_ids.add("pool_main")
-        for lspec in lanes_spec:
+        for lspec in raw_lanes_list:
             if not isinstance(lspec, dict):
                 raise ValueError("each entry in 'lanes' must be a JSON object")
             raw_lid = lspec.get("id")
@@ -586,8 +639,13 @@ def compile_spec_to_drawio(spec, preset_name=None):
             if not lid:
                 raise ValueError("each swimlane must define a non-empty 'id'")
             if lid in used_ids:
-                raise ValueError(f"duplicate or reserved lane id {lid!r}")
+                raise ValueError(
+                    f"duplicate or reserved lane id {lid!r} (from {raw_lid!r} after trimming whitespace)"
+                )
             used_ids.add(lid)
+            norm_lane = dict(lspec)
+            norm_lane["id"] = lid
+            lanes_spec.append(norm_lane)
             lane_ids.append(lid)
             lane_id_set.add(lid)
 
@@ -601,6 +659,7 @@ def compile_spec_to_drawio(spec, preset_name=None):
         "connector": "on_page_connector", "offpage": "off_page_connector",
         "db": "database", "manual": "manual_operation",
         "comment": "annotation", "note": "annotation",
+        "punched_tape": "paper_tape", "tape": "paper_tape",
     }
     valid_type_names = sorted(sym_catalog.keys())
     all_known_type_names = set(valid_type_names) | set(alias_map.keys())
@@ -664,8 +723,30 @@ def compile_spec_to_drawio(spec, preset_name=None):
                 raise ValueError(
                     f"invalid 'duration' on node {nid!r}: {raw_dur!r} (expected finite non-negative number)"
                 )
-        elif kind == "cpm" and resolved_type != "annotation":
+        elif (kind == "cpm" or bool(spec.get("compute_cpm", False))) and resolved_type != "annotation":
             raise ValueError(f"CPM node {nid!r} is missing required numeric field 'duration'")
+
+        if "loop_id" in n and n["loop_id"] is not None:
+            if not isinstance(n["loop_id"], str) or not n["loop_id"].strip():
+                raise ValueError(f"invalid 'loop_id' on node {nid!r}: expected non-empty string")
+            ncopy["loop_id"] = n["loop_id"].strip()
+
+        if "ref_page" in n and n["ref_page"] is not None:
+            if not isinstance(n["ref_page"], str) or not n["ref_page"].strip():
+                raise ValueError(f"invalid 'ref_page' on node {nid!r}: expected non-empty string")
+            ncopy["ref_page"] = n["ref_page"].strip()
+
+        if "branch_style" in n and n["branch_style"] is not None:
+            bs = str(n["branch_style"]).strip().lower()
+            if bs not in ("", "auto", "direct", "stem"):
+                raise ValueError(f"invalid 'branch_style' {n['branch_style']!r} on node {nid!r} (valid: auto, direct, stem)")
+            ncopy["branch_style"] = bs
+
+        if "items" in n and n["items"] is not None:
+            raw_items = n["items"]
+            if not isinstance(raw_items, list) or not raw_items or not all(isinstance(it, str) and it.strip() for it in raw_items):
+                raise ValueError(f"invalid 'items' on node {nid!r}: expected non-empty list of strings")
+            ncopy["items"] = [it.strip() for it in raw_items]
 
         raw_lane = n.get("lane")
         if resolved_type != "annotation":
@@ -764,8 +845,20 @@ def compile_spec_to_drawio(spec, preset_name=None):
             hint = _suggest_match(role_s, [r for r in VALID_EDGE_ROLES if r])
             raise ValueError(
                 f"invalid 'role' {e.get('role')!r} on edge {eid!r}{hint}; "
-                f"valid roles: normal, error, critical"
+                f"valid roles: {', '.join(r for r in VALID_EDGE_ROLES if r)}"
             )
+
+        raw_arrows = e.get("arrows")
+        arrows_s = str(raw_arrows).strip().lower() if raw_arrows is not None else ""
+        if arrows_s not in VALID_EDGE_ARROWS:
+            raise ValueError(
+                f"invalid 'arrows' {raw_arrows!r} on edge {eid!r}; valid values: end, both, start, none"
+            )
+        is_bidir = bool(e.get("bidirectional", False)) or (arrows_s == "both")
+        if is_bidir:
+            arrows_s = "both"
+        elif not arrows_s:
+            arrows_s = "end"
 
         raw_edges.append({
             "id": eid,
@@ -773,15 +866,17 @@ def compile_spec_to_drawio(spec, preset_name=None):
             "to": tgt_s,
             "label": str(e.get("label") or ""),
             "style_role": role_s,
-            "dashed": bool(e.get("dashed", False)),
+            "dashed": bool(e.get("dashed", False)) or (role_s == "alternative"),
+            "arrows": arrows_s,
+            "bidirectional": is_bidir,
         })
 
     explicit_ranks = {n["id"]: n["rank"] for n in flow_nodes if n.get("rank") is not None}
     edge_tuples = [(e["from"], e["to"], e["id"]) for e in raw_edges]
 
-    # Strict CPM computation BEFORE layout: cycles abort immediately instead of dropping back-edges
+    # Strict CPM computation ONLY when kind == "cpm" or compute_cpm == True
     cpm_metrics, crit_nodes, crit_edges, project_end = {}, set(), set(), 0.0
-    if kind == "cpm" or any(n.get("duration") is not None for n in flow_nodes):
+    if kind == "cpm" or bool(spec.get("compute_cpm", False)):
         cpm_metrics, crit_nodes, crit_edges, project_end = _compute_cpm(flow_nodes, raw_edges)
         if kind == "cpm" and not subtitle:
             crit_hex = _safe_style_val(theme_tok["edge_critical"])
@@ -811,7 +906,13 @@ def compile_spec_to_drawio(spec, preset_name=None):
     formatted_labels = {}
     for n in flow_nodes:
         nid = n["id"]
-        lbl = str(n.get("label") or nid)
+        overlay_items = n.get("items")
+        if overlay_items:
+            lbl = str(n.get("label") or "\n".join(overlay_items))
+        elif n["type"] == "ellipsis":
+            lbl = str(n.get("label") or "...")
+        else:
+            lbl = str(n.get("label") if n.get("label") is not None else nid)
         if nid in cpm_metrics:
             m = cpm_metrics[nid]
             code_tag = str(n.get("code") or nid.upper())
@@ -835,9 +936,12 @@ def compile_spec_to_drawio(spec, preset_name=None):
             boxes_wh[nid] = (w, h)
             formatted_labels[nid] = lbl_html
         else:
-            w, h = _measure_node_box(n["type"], lbl, sym_catalog)
+            w, h = _measure_node_box(n["type"], lbl, sym_catalog, overlay_items=overlay_items)
             boxes_wh[nid] = (w, h)
-            formatted_labels[nid] = html.escape(lbl).replace("\n", "<br/>")
+            if overlay_items and not n.get("label"):
+                formatted_labels[nid] = "<br/>".join(html.escape(it) for it in overlay_items)
+            else:
+                formatted_labels[nid] = html.escape(lbl).replace("\n", "<br/>")
 
     for an in annot_nodes:
         aid = an["id"]
@@ -1329,21 +1433,32 @@ def compile_spec_to_drawio(spec, preset_name=None):
         lane_borders_x.extend([lx, lx + lw])
         lane_borders_y.extend([ly, ly + lh])
 
-    # Build XML tree
-    mxfile = ET.Element("mxfile", host="pro-diagrams", version="1.0.0")
-    diagram = ET.SubElement(mxfile, "diagram", id="page-1", name=spec.get("page_name") or "ISO-5807-Diagram")
+    # Build <diagram> XML element for this page
+    page_id = str(spec.get("page_id") or f"page-{page_index}")
+    page_name = str(
+        spec.get("page_name")
+        or spec.get("name")
+        or (f"Page {page_index}" if page_index > 1 else "ISO-5807-Diagram")
+    )
+    diagram = ET.Element("diagram", id=page_id, name=page_name)
     bg_hex = _safe_style_val(preset_extras.get("background", "#F8F6F2"))
     all_r = [b[0] + b[2] for b in abs_boxes.values()] + [lc[2] + lc[4] for lc in lane_cells if lc[6] == "1"]
     all_b = [b[1] + b[3] for b in abs_boxes.values()] + [lc[3] + lc[5] for lc in lane_cells if lc[6] == "1"]
     page_w = max(900, _snap(max(all_r, default=800) + 140))
     page_h = max(640, _snap(max(all_b, default=560) + 100))
+    iso_dtype = (
+        "swimlane"
+        if (kind == "iso5807-flowchart" and has_swimlanes)
+        else ISO_DIAGRAM_TYPE_MAP.get(kind, "program-flowchart")
+    )
 
     model = ET.SubElement(
         diagram, "mxGraphModel",
         dx="1280", dy="800", grid="1", gridSize="10", guides="1", tooltips="1",
         connect="1", arrows="1", fold="1", page="1", pageScale="1",
         pageWidth=str(page_w), pageHeight=str(page_h),
-        background=bg_hex, math="0", shadow="0"
+        background=bg_hex, math="0", shadow="0",
+        isoDiagramType=iso_dtype,
     )
     root = ET.SubElement(model, "root")
     ET.SubElement(root, "mxCell", id="0")
@@ -1395,12 +1510,28 @@ def compile_spec_to_drawio(spec, preset_name=None):
         stroke_c = _safe_style_val(pair["strokeColor"])
         sw_val = 2.5 if nid in crit_nodes else stroke_w
 
+        extra_meta = ""
+        if n.get("loop_id"):
+            extra_meta += f"isoLoopId={urllib.parse.quote(n['loop_id'], safe='')};"
+        if n.get("ref_page"):
+            extra_meta += f"isoRefPage={urllib.parse.quote(n['ref_page'], safe='')};"
+        if n.get("items"):
+            encoded_items = urllib.parse.quote(
+                json.dumps(n["items"], ensure_ascii=False), safe=""
+            )
+            extra_meta += f"isoOverlayItems={encoded_items};"
+
         if sym_key == "annotation":
             flip_part = "flipH=1;" if annot_side.get(nid) == "left" else ""
             full_style = (
                 f"{base_style}{flip_part}fillColor=none;strokeColor={ink_muted};"
                 f"fontColor={ink_muted};fontFamily={font_family};fontSize=11;"
-                f"spacingLeft=8;spacingTop=4;spacingBottom=4;strokeWidth=1.2;"
+                f"spacingLeft=8;spacingTop=4;spacingBottom=4;strokeWidth=1.2;{extra_meta}"
+            )
+        elif sym_key == "ellipsis":
+            full_style = (
+                f"{base_style}fontColor={font_color};fontFamily={font_family};"
+                f"fontSize=12;fontStyle=1;{extra_meta}"
             )
         else:
             bold_part = "fontStyle=1;" if sym_key in ("terminator", "decision") else ""
@@ -1408,6 +1539,7 @@ def compile_spec_to_drawio(spec, preset_name=None):
                 f"{base_style}fillColor={fill_c};strokeColor={stroke_c};"
                 f"fontColor={font_color};fontFamily={font_family};fontSize={font_size};{bold_part}"
                 f"strokeWidth={sw_val:g};spacingTop=6;spacingBottom=6;spacingLeft=8;spacingRight=8;"
+                f"{extra_meta}"
             )
         rx, ry, w, h = rel_boxes[nid]
         cell = ET.SubElement(
@@ -1497,7 +1629,10 @@ def compile_spec_to_drawio(spec, preset_name=None):
             gap_xs.append(_avoid_border((x_lo + x_hi) / 2.0, lane_borders_x))
 
     # Assign exits for Decision nodes geometrically (avoiding crossed/backward exits)
+    # Supports ISO 5807:1985 §10.3.1(b) single-stem fan-out when branch_style=='stem' or >3 forward exits
     decision_ports = {}
+    stem_decisions = {}   # decision_id -> bus coordinate (y_bus in TB, x_bus in LR)
+    stem_edge_ids = set()
     for nid, outs in out_by_src.items():
         if by_node.get(nid, {}).get("type") != "decision":
             continue
@@ -1507,47 +1642,76 @@ def compile_spec_to_drawio(spec, preset_name=None):
         back_outs = [e for e in outs if e["id"] in back_edge_ids]
         used_sides = set()
 
-        if direction == "TB":
-            # Assign directly-below forward target to bottom first so it never wraps around
-            below_cands = [
-                e for e in fwd_outs
-                if abs((abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0) - scx) <= 25
-                and (abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0) >= scy
-            ]
-            if below_cands:
-                # Prefer affirmative among directly-below targets
-                below_cands.sort(key=lambda e: (0 if _is_affirmative_label(e["label"]) else 1))
-                chosen_bot = below_cands[0]
-                decision_ports[chosen_bot["id"]] = (0.5, 1.0)
-                used_sides.add("bottom")
+        branch_style = by_node[nid].get("branch_style") or "auto"
+        want_stem = (branch_style == "stem" and len(fwd_outs) >= 2) or (
+            branch_style != "direct" and len(fwd_outs) > 3
+        )
+        if want_stem and fwd_outs:
+            if direction == "TB":
+                min_ty = min(abs_boxes[e["to"]][1] for e in fwd_outs)
+                if min_ty >= sy + sh + 24:
+                    raw_bus = sy + sh + min(28.0, max(16.0, (min_ty - (sy + sh)) * 0.35))
+                    y_bus = _avoid_border(int(round(raw_bus)), lane_borders_y)
+                    y_bus = max(int(round(sy + sh + 12)), min(int(round(min_ty - 16)), y_bus))
+                    stem_decisions[nid] = y_bus
+                    for e in fwd_outs:
+                        decision_ports[e["id"]] = (0.5, 1.0)
+                        stem_edge_ids.add(e["id"])
+                    used_sides.add("bottom")
+            else:
+                min_tx = min(abs_boxes[e["to"]][0] for e in fwd_outs)
+                if min_tx >= sx + sw + 24:
+                    raw_bus = sx + sw + min(28.0, max(16.0, (min_tx - (sx + sw)) * 0.35))
+                    x_bus = _avoid_border(int(round(raw_bus)), lane_borders_x)
+                    x_bus = max(int(round(sx + sw + 12)), min(int(round(min_tx - 16)), x_bus))
+                    stem_decisions[nid] = x_bus
+                    for e in fwd_outs:
+                        decision_ports[e["id"]] = (1.0, 0.5)
+                        stem_edge_ids.add(e["id"])
+                    used_sides.add("right")
 
-            # Remaining forward edges: route left targets via left, right via right, or affirmative via bottom
-            rem_fwd = [e for e in fwd_outs if e["id"] not in decision_ports]
-            rem_fwd.sort(key=lambda e: (abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0))
-            for e in rem_fwd:
-                eid = e["id"]
-                tx, ty, tw, th = abs_boxes[e["to"]]
-                tcx, tcy = tx + tw / 2.0, ty + th / 2.0
-                if tcx < scx - 25 and "left" not in used_sides:
-                    decision_ports[eid] = (0.0, 0.5)
-                    used_sides.add("left")
-                elif tcx > scx + 25 and "right" not in used_sides:
-                    decision_ports[eid] = (1.0, 0.5)
-                    used_sides.add("right")
-                elif _is_affirmative_label(e["label"]) and "bottom" not in used_sides and tcy >= scy:
-                    decision_ports[eid] = (0.5, 1.0)
+        if direction == "TB":
+            if nid not in stem_decisions:
+                # Assign directly-below forward target to bottom first so it never wraps around
+                below_cands = [
+                    e for e in fwd_outs
+                    if abs((abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0) - scx) <= 25
+                    and (abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0) >= scy
+                ]
+                if below_cands:
+                    # Prefer affirmative among directly-below targets
+                    below_cands.sort(key=lambda e: (0 if _is_affirmative_label(e["label"]) else 1))
+                    chosen_bot = below_cands[0]
+                    decision_ports[chosen_bot["id"]] = (0.5, 1.0)
                     used_sides.add("bottom")
-                elif "bottom" not in used_sides and tcy >= scy:
-                    decision_ports[eid] = (0.5, 1.0)
-                    used_sides.add("bottom")
-                elif "right" not in used_sides:
-                    decision_ports[eid] = (1.0, 0.5)
-                    used_sides.add("right")
-                elif "left" not in used_sides:
-                    decision_ports[eid] = (0.0, 0.5)
-                    used_sides.add("left")
-                else:
-                    decision_ports[eid] = (0.5, 1.0)
+
+                # Remaining forward edges: route left targets via left, right via right, or affirmative via bottom
+                rem_fwd = [e for e in fwd_outs if e["id"] not in decision_ports]
+                rem_fwd.sort(key=lambda e: (abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0))
+                for e in rem_fwd:
+                    eid = e["id"]
+                    tx, ty, tw, th = abs_boxes[e["to"]]
+                    tcx, tcy = tx + tw / 2.0, ty + th / 2.0
+                    if tcx < scx - 25 and "left" not in used_sides:
+                        decision_ports[eid] = (0.0, 0.5)
+                        used_sides.add("left")
+                    elif tcx > scx + 25 and "right" not in used_sides:
+                        decision_ports[eid] = (1.0, 0.5)
+                        used_sides.add("right")
+                    elif _is_affirmative_label(e["label"]) and "bottom" not in used_sides and tcy >= scy:
+                        decision_ports[eid] = (0.5, 1.0)
+                        used_sides.add("bottom")
+                    elif "bottom" not in used_sides and tcy >= scy:
+                        decision_ports[eid] = (0.5, 1.0)
+                        used_sides.add("bottom")
+                    elif "right" not in used_sides:
+                        decision_ports[eid] = (1.0, 0.5)
+                        used_sides.add("right")
+                    elif "left" not in used_sides:
+                        decision_ports[eid] = (0.0, 0.5)
+                        used_sides.add("left")
+                    else:
+                        decision_ports[eid] = (0.5, 1.0)
 
             for e in back_outs:
                 eid = e["id"]
@@ -1565,43 +1729,44 @@ def compile_spec_to_drawio(spec, preset_name=None):
                 else:
                     decision_ports[eid] = (1.0, 0.5)
         else:
-            right_cands = [
-                e for e in fwd_outs
-                if abs((abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0) - scy) <= 25
-                and (abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0) >= scx
-            ]
-            if right_cands:
-                right_cands.sort(key=lambda e: (0 if _is_affirmative_label(e["label"]) else 1))
-                chosen_r = right_cands[0]
-                decision_ports[chosen_r["id"]] = (1.0, 0.5)
-                used_sides.add("right")
+            if nid not in stem_decisions:
+                right_cands = [
+                    e for e in fwd_outs
+                    if abs((abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0) - scy) <= 25
+                    and (abs_boxes[e["to"]][0] + abs_boxes[e["to"]][2] / 2.0) >= scx
+                ]
+                if right_cands:
+                    right_cands.sort(key=lambda e: (0 if _is_affirmative_label(e["label"]) else 1))
+                    chosen_r = right_cands[0]
+                    decision_ports[chosen_r["id"]] = (1.0, 0.5)
+                    used_sides.add("right")
 
-            rem_fwd = [e for e in fwd_outs if e["id"] not in decision_ports]
-            rem_fwd.sort(key=lambda e: (abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0))
-            for e in rem_fwd:
-                eid = e["id"]
-                tx, ty, tw, th = abs_boxes[e["to"]]
-                tcx, tcy = tx + tw / 2.0, ty + th / 2.0
-                if tcy < scy - 25 and "top" not in used_sides:
-                    decision_ports[eid] = (0.5, 0.0)
-                    used_sides.add("top")
-                elif tcy > scy + 25 and "bottom" not in used_sides:
-                    decision_ports[eid] = (0.5, 1.0)
-                    used_sides.add("bottom")
-                elif _is_affirmative_label(e["label"]) and "right" not in used_sides and tcx >= scx:
-                    decision_ports[eid] = (1.0, 0.5)
-                    used_sides.add("right")
-                elif "right" not in used_sides and tcx >= scx:
-                    decision_ports[eid] = (1.0, 0.5)
-                    used_sides.add("right")
-                elif "bottom" not in used_sides:
-                    decision_ports[eid] = (0.5, 1.0)
-                    used_sides.add("bottom")
-                elif "top" not in used_sides:
-                    decision_ports[eid] = (0.5, 0.0)
-                    used_sides.add("top")
-                else:
-                    decision_ports[eid] = (1.0, 0.5)
+                rem_fwd = [e for e in fwd_outs if e["id"] not in decision_ports]
+                rem_fwd.sort(key=lambda e: (abs_boxes[e["to"]][1] + abs_boxes[e["to"]][3] / 2.0))
+                for e in rem_fwd:
+                    eid = e["id"]
+                    tx, ty, tw, th = abs_boxes[e["to"]]
+                    tcx, tcy = tx + tw / 2.0, ty + th / 2.0
+                    if tcy < scy - 25 and "top" not in used_sides:
+                        decision_ports[eid] = (0.5, 0.0)
+                        used_sides.add("top")
+                    elif tcy > scy + 25 and "bottom" not in used_sides:
+                        decision_ports[eid] = (0.5, 1.0)
+                        used_sides.add("bottom")
+                    elif _is_affirmative_label(e["label"]) and "right" not in used_sides and tcx >= scx:
+                        decision_ports[eid] = (1.0, 0.5)
+                        used_sides.add("right")
+                    elif "right" not in used_sides and tcx >= scx:
+                        decision_ports[eid] = (1.0, 0.5)
+                        used_sides.add("right")
+                    elif "bottom" not in used_sides:
+                        decision_ports[eid] = (0.5, 1.0)
+                        used_sides.add("bottom")
+                    elif "top" not in used_sides:
+                        decision_ports[eid] = (0.5, 0.0)
+                        used_sides.add("top")
+                    else:
+                        decision_ports[eid] = (1.0, 0.5)
 
             for e in back_outs:
                 eid = e["id"]
@@ -1628,6 +1793,49 @@ def compile_spec_to_drawio(spec, preset_name=None):
         tcx, tcy = tx + tw / 2.0, ty + th / 2.0
         is_back = eid in back_edge_ids
         other_boxes = [b for k, b in abs_boxes.items() if k not in (u, v)] + [title_box]
+
+        if eid in stem_edge_ids and u in stem_decisions:
+            fwd_ins = [ie for ie in in_by_tgt[v] if ie["id"] not in back_edge_ids]
+            if direction == "TB":
+                ex_x, ex_y = 0.5, 1.0
+                if len(fwd_ins) > 1:
+                    fwd_ins_sorted = sorted(
+                        fwd_ins,
+                        key=lambda ie: (abs_boxes[ie["from"]][0] + abs_boxes[ie["from"]][2] / 2.0, ie["id"])
+                    )
+                    k_in = fwd_ins_sorted.index(e)
+                    en_x = round(0.25 + 0.5 * (k_in / max(1, len(fwd_ins_sorted) - 1)), 4)
+                else:
+                    en_x = 0.5
+                en_y = 0.0
+                px1, py1 = sx + ex_x * sw, sy + ex_y * sh
+                px2, py2 = tx + en_x * tw, ty + en_y * th
+                y_bus = int(round(stem_decisions[u]))
+                if abs(px1 - px2) <= 2:
+                    wps = [(int(round(px1)), y_bus)]
+                else:
+                    wps = [(int(round(px1)), y_bus), (int(round(px2)), y_bus)]
+                return ex_x, ex_y, en_x, en_y, wps, [(px1, py1)] + wps + [(px2, py2)]
+            else:
+                ex_x, ex_y = 1.0, 0.5
+                if len(fwd_ins) > 1:
+                    fwd_ins_sorted = sorted(
+                        fwd_ins,
+                        key=lambda ie: (abs_boxes[ie["from"]][1] + abs_boxes[ie["from"]][3] / 2.0, ie["id"])
+                    )
+                    k_in = fwd_ins_sorted.index(e)
+                    en_y = round(0.25 + 0.5 * (k_in / max(1, len(fwd_ins_sorted) - 1)), 4)
+                else:
+                    en_y = 0.5
+                en_x = 0.0
+                px1, py1 = sx + ex_x * sw, sy + ex_y * sh
+                px2, py2 = tx + en_x * tw, ty + en_y * th
+                x_bus = int(round(stem_decisions[u]))
+                if abs(py1 - py2) <= 2:
+                    wps = [(x_bus, int(round(py1)))]
+                else:
+                    wps = [(x_bus, int(round(py1))), (x_bus, int(round(py2)))]
+                return ex_x, ex_y, en_x, en_y, wps, [(px1, py1)] + wps + [(px2, py2)]
 
         candidates = []
 
@@ -1797,16 +2005,36 @@ def compile_spec_to_drawio(spec, preset_name=None):
                 elif ex_y == 0.5 and en_y == 0.0:
                     # Side exit from decision -> L-bend into target top
                     _add_cand(ex_x, ex_y, en_x, en_y, [(_snap(px2), _snap(py1))])
-                    # Z-bends via side channel into inter-rank gap above target
+                    # Z-bends via side channel or outer corridor into inter-rank gap above target
                     side_dir = 1 if ex_x > 0.5 else -1
-                    for off_x in (30, 50, 70):
-                        sx_ch = _avoid_border(px1 + side_dir * off_x, lane_borders_x)
+                    cand_sx_chs = [_avoid_border(px1 + side_dir * off_x, lane_borders_x) for off_x in (30, 50, 70)]
+                    outer_ch = _avoid_border(
+                        (max_box_x + 40) if side_dir > 0 else (min_box_x - 40),
+                        lane_borders_x,
+                    )
+                    if outer_ch >= 20:
+                        cand_sx_chs.append(outer_ch)
+                    for sx_ch in cand_sx_chs:
                         for off_y in (25, 35, 15):
                             my = _avoid_border(py2 - off_y, lane_borders_y)
                             _add_cand(ex_x, ex_y, en_x, en_y, [(sx_ch, _snap(py1)), (sx_ch, my), (_snap(px2), my)])
                         # Also try entering target side directly
                         side_en_x = 0.0 if sx_ch < tx else 1.0
                         _add_cand(ex_x, ex_y, side_en_x, 0.5, [(sx_ch, _snap(py1)), (sx_ch, _snap(tcy))])
+                    # If sibling nodes block the horizontal line out of the diamond, jog into the gap just below it then take outer corridor
+                    if outer_ch >= 20:
+                        sx_local = _avoid_border(px1 + side_dir * 25, lane_borders_x)
+                        y_below = _avoid_border(sy + sh + 25, lane_borders_y)
+                        my_t = _avoid_border(py2 - 25, lane_borders_y)
+                        side_en_x = 0.0 if outer_ch < tx else 1.0
+                        _add_cand(ex_x, ex_y, en_x, en_y, [
+                            (sx_local, _snap(py1)), (sx_local, y_below), (outer_ch, y_below),
+                            (outer_ch, my_t), (_snap(px2), my_t)
+                        ])
+                        _add_cand(ex_x, ex_y, side_en_x, 0.5, [
+                            (sx_local, _snap(py1)), (sx_local, y_below), (outer_ch, y_below),
+                            (outer_ch, _snap(tcy))
+                        ])
                 elif abs(px1 - px2) <= 4 and not going_upward:
                     # Straight vertical candidate (no waypoints if obstacle-free)
                     if not _route_hits_any_box([(px1, py1), (px2, py2)], other_boxes, pad=2):
@@ -2005,6 +2233,8 @@ def compile_spec_to_drawio(spec, preset_name=None):
         changed = False
         for e in ordered_edges:
             eid, u, v = e["id"], e["from"], e["to"]
+            if eid in stem_edge_ids:
+                continue
             ex_x, ex_y, en_x, en_y, wps, full = routed_results[eid]
             if not wps:
                 continue
@@ -2038,19 +2268,44 @@ def compile_spec_to_drawio(spec, preset_name=None):
         eid, u, v = e["id"], e["from"], e["to"]
         ex_x, ex_y, en_x, en_y, waypoints, _ = routed_results[eid]
         is_back = eid in back_edge_ids
-        is_crit_edge = (eid in crit_edges) or (e["style_role"] == "critical")
+        role_s = e["style_role"]
+        is_crit_edge = (eid in crit_edges) or (role_s == "critical")
         ecolor = edge_crit_color if is_crit_edge else (
-            edge_err_color if e["style_role"] == "error" else edge_base_color
+            edge_err_color if role_s == "error" else edge_base_color
         )
         ewidth = 2.4 if is_crit_edge else 1.5
         dash_part = "dashed=1;" if (e["dashed"] or (is_back and spec.get("dash_back_edges", False))) else ""
+
+        arrows_s = e["arrows"]
+        start_arrow_part = (
+            "startArrow=block;startFill=1;startSize=7;"
+            if arrows_s in ("both", "start")
+            else ""
+        )
+        end_arrow_part = (
+            "endArrow=block;endFill=1;endSize=7;"
+            if arrows_s in ("both", "end")
+            else "endArrow=none;"
+        )
+
+        iso_edge_meta = ""
+        if role_s == "control_transfer":
+            iso_edge_meta += "isoLine=control_transfer;"
+        elif role_s == "communication_link":
+            iso_edge_meta += "isoLine=communication_link;"
+        elif role_s in ("data", "control"):
+            iso_edge_meta += f"isoFlowRole={role_s};"
+        if eid in stem_edge_ids:
+            iso_edge_meta += "isoStemBranch=1;"
+
         est = (
             f"edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;"
             f"exitX={ex_x:g};exitY={ex_y:g};exitDx=0;exitDy=0;"
             f"entryX={en_x:g};entryY={en_y:g};entryDx=0;entryDy=0;"
-            f"endArrow=block;endFill=1;endSize=7;strokeColor={ecolor};strokeWidth={ewidth:g};{dash_part}"
+            f"{start_arrow_part}{end_arrow_part}"
+            f"strokeColor={ecolor};strokeWidth={ewidth:g};{dash_part}"
             f"fontFamily={font_family};fontSize=11;fontColor={ecolor};"
-            f"labelBackgroundColor={edge_label_bg};"
+            f"labelBackgroundColor={edge_label_bg};{iso_edge_meta}"
         )
         ec = ET.SubElement(
             root, "mxCell", id=eid, value=html.escape(e["label"]),
@@ -2069,6 +2324,42 @@ def compile_spec_to_drawio(spec, preset_name=None):
         model.set("pageWidth", str(max(int(model.get("pageWidth")), _snap(max(all_wx) + 120))))
     if all_wy:
         model.set("pageHeight", str(max(int(model.get("pageHeight")), _snap(max(all_wy) + 100))))
+
+    return diagram
+
+
+def compile_spec_to_drawio(spec, preset_name=None):
+    """Compile a single-page or multi-page JSON diagram spec into an ElementTree."""
+    if not isinstance(spec, dict):
+        raise ValueError("spec must be a JSON object")
+
+    mxfile = ET.Element("mxfile", host="pro-diagrams", version="1.1.0")
+
+    if "pages" in spec and spec["pages"] is not None:
+        pages = spec["pages"]
+        if not isinstance(pages, list) or not pages:
+            raise ValueError("spec field 'pages' must be a non-empty JSON list")
+        inherited_keys = (
+            "kind", "preset", "direction", "duration_unit",
+            "title", "subtitle", "dash_back_edges", "compute_cpm",
+        )
+        seen_page_ids = set()
+        for idx, pspec in enumerate(pages, start=1):
+            if not isinstance(pspec, dict):
+                raise ValueError(f"page #{idx} in 'pages' must be a JSON object")
+            merged = dict(pspec)
+            for k in inherited_keys:
+                if k not in merged and k in spec:
+                    merged[k] = spec[k]
+            diag_el = _compile_page_element(merged, preset_name=preset_name, page_index=idx)
+            pid = diag_el.get("id")
+            if pid in seen_page_ids:
+                diag_el.set("id", f"page-{idx}")
+                pid = f"page-{idx}"
+            seen_page_ids.add(pid)
+            mxfile.append(diag_el)
+    else:
+        mxfile.append(_compile_page_element(spec, preset_name=preset_name, page_index=1))
 
     tree = ET.ElementTree(mxfile)
     ET.indent(tree, space="  ")

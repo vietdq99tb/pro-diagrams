@@ -1,0 +1,306 @@
+{
+  "kind": "data-flowchart",
+  "title": "A · Luồng dữ liệu xử lý séc",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "incoming",
+      "type": "multi_document",
+      "label": "Séc và phiếu đặt chỗ",
+      "items": [
+        "Séc thanh toán",
+        "Phiếu đặt chỗ"
+      ]
+    },
+    {
+      "id": "review",
+      "type": "manual_operation",
+      "label": "Rà soát và sửa lỗi"
+    },
+    {
+      "id": "checks",
+      "type": "document",
+      "label": "Séc"
+    },
+    {
+      "id": "forms",
+      "type": "document",
+      "label": "Phiếu đặt chỗ"
+    },
+    {
+      "id": "key_amount",
+      "type": "manual_input",
+      "label": "Nhập mã khách và số tiền"
+    },
+    {
+      "id": "read_forms",
+      "type": "process",
+      "label": "Đọc chứng từ"
+    },
+    {
+      "id": "forms_copy",
+      "type": "multi_document",
+      "label": "Bản phiếu đặt chỗ"
+    },
+    {
+      "id": "record",
+      "type": "internal_storage",
+      "label": "Dữ liệu đặt chỗ"
+    },
+    {
+      "id": "keyed_checks",
+      "type": "document",
+      "label": "Séc đã nhập"
+    },
+    {
+      "id": "exception_list",
+      "type": "document",
+      "label": "Danh sách séc cần trả và số tiền cần điền"
+    },
+    {
+      "id": "letters",
+      "type": "multi_document",
+      "label": "Thư thông báo hết vé"
+    },
+    {
+      "id": "tickets",
+      "type": "multi_document",
+      "label": "Vé để gửi"
+    },
+    {
+      "id": "sort",
+      "type": "manual_operation",
+      "label": "Tách séc trống và séc cần trả"
+    },
+    {
+      "id": "regular_checks",
+      "type": "document",
+      "label": "Séc hợp lệ"
+    },
+    {
+      "id": "blank_checks",
+      "type": "document",
+      "label": "Séc trống"
+    },
+    {
+      "id": "returned_checks",
+      "type": "document",
+      "label": "Séc cần trả"
+    },
+    {
+      "id": "total_regular",
+      "type": "process",
+      "label": "Cộng và liệt kê séc hợp lệ"
+    },
+    {
+      "id": "regular_totals",
+      "type": "document",
+      "label": "Tổng séc hợp lệ"
+    },
+    {
+      "id": "list_for_fill",
+      "type": "document",
+      "label": "Danh sách số tiền cần điền"
+    },
+    {
+      "id": "fill",
+      "type": "manual_operation",
+      "label": "Điền số tiền lên séc trống"
+    },
+    {
+      "id": "filing",
+      "type": "manual_operation",
+      "label": "Lưu danh sách"
+    },
+    {
+      "id": "filled_checks",
+      "type": "document",
+      "label": "Séc đã điền"
+    },
+    {
+      "id": "total_filled",
+      "type": "process",
+      "label": "Cộng và liệt kê séc đã điền"
+    },
+    {
+      "id": "total_docs",
+      "type": "multi_document",
+      "label": "Bản tổng cộng"
+    },
+    {
+      "id": "final_checks",
+      "type": "multi_document",
+      "label": "Tập séc cuối"
+    },
+    {
+      "id": "postal_note",
+      "type": "annotation",
+      "label": "Nhận qua bưu điện",
+      "attach_to": "incoming"
+    }
+  ],
+  "edges": [
+    {
+      "from": "incoming",
+      "to": "review",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "review",
+      "to": "checks",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "checks",
+      "to": "key_amount",
+      "label": "",
+      "id": "flow03"
+    },
+    {
+      "from": "key_amount",
+      "to": "keyed_checks",
+      "label": "",
+      "id": "flow04"
+    },
+    {
+      "from": "keyed_checks",
+      "to": "sort",
+      "label": "",
+      "id": "flow05"
+    },
+    {
+      "from": "review",
+      "to": "forms",
+      "label": "",
+      "id": "flow06"
+    },
+    {
+      "from": "forms",
+      "to": "read_forms",
+      "label": "",
+      "id": "flow07"
+    },
+    {
+      "from": "read_forms",
+      "to": "record",
+      "label": "",
+      "id": "flow08"
+    },
+    {
+      "from": "record",
+      "to": "exception_list",
+      "label": "",
+      "id": "flow09"
+    },
+    {
+      "from": "exception_list",
+      "to": "sort",
+      "label": "",
+      "id": "flow10"
+    },
+    {
+      "from": "read_forms",
+      "to": "forms_copy",
+      "label": "",
+      "id": "flow11"
+    },
+    {
+      "from": "key_amount",
+      "to": "record",
+      "label": "",
+      "id": "flow12"
+    },
+    {
+      "from": "record",
+      "to": "letters",
+      "label": "",
+      "id": "flow13"
+    },
+    {
+      "from": "record",
+      "to": "tickets",
+      "label": "",
+      "id": "flow14"
+    },
+    {
+      "from": "sort",
+      "to": "regular_checks",
+      "label": "",
+      "id": "flow15"
+    },
+    {
+      "from": "regular_checks",
+      "to": "total_regular",
+      "label": "",
+      "id": "flow16"
+    },
+    {
+      "from": "total_regular",
+      "to": "regular_totals",
+      "label": "",
+      "id": "flow17"
+    },
+    {
+      "from": "sort",
+      "to": "returned_checks",
+      "label": "",
+      "id": "flow18"
+    },
+    {
+      "from": "sort",
+      "to": "blank_checks",
+      "label": "",
+      "id": "flow19"
+    },
+    {
+      "from": "blank_checks",
+      "to": "fill",
+      "label": "",
+      "id": "flow20"
+    },
+    {
+      "from": "fill",
+      "to": "filled_checks",
+      "label": "",
+      "id": "flow21"
+    },
+    {
+      "from": "filled_checks",
+      "to": "total_filled",
+      "label": "",
+      "id": "flow22"
+    },
+    {
+      "from": "total_filled",
+      "to": "total_docs",
+      "label": "",
+      "id": "flow23"
+    },
+    {
+      "from": "list_for_fill",
+      "to": "fill",
+      "label": "",
+      "id": "flow24"
+    },
+    {
+      "from": "list_for_fill",
+      "to": "filing",
+      "label": "",
+      "id": "flow25"
+    },
+    {
+      "from": "total_regular",
+      "to": "final_checks",
+      "label": "",
+      "id": "flow26"
+    },
+    {
+      "from": "total_filled",
+      "to": "final_checks",
+      "label": "",
+      "id": "flow27"
+    }
+  ]
+}

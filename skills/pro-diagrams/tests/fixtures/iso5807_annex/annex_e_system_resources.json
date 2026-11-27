@@ -1,0 +1,75 @@
+{
+  "kind": "system-resources",
+  "title": "E · Tài nguyên hệ thống cập nhật tệp",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "transaction",
+      "type": "sequential_data",
+      "label": "Tệp giao dịch"
+    },
+    {
+      "id": "validation",
+      "type": "direct_data",
+      "label": "Bảng kiểm tra"
+    },
+    {
+      "id": "work_file",
+      "type": "direct_data",
+      "label": "Tệp làm việc"
+    },
+    {
+      "id": "master",
+      "type": "direct_data",
+      "label": "Tệp chính"
+    },
+    {
+      "id": "update",
+      "type": "process",
+      "label": "Cập nhật"
+    },
+    {
+      "id": "results",
+      "type": "multi_document",
+      "label": "Báo cáo và danh sách lỗi",
+      "items": [
+        "Báo cáo tổng hợp",
+        "Danh sách lỗi"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "transaction",
+      "to": "update",
+      "label": "",
+      "id": "flow01"
+    },
+    {
+      "from": "validation",
+      "to": "update",
+      "label": "",
+      "id": "flow02"
+    },
+    {
+      "from": "work_file",
+      "to": "update",
+      "label": "",
+      "id": "flow03",
+      "bidirectional": true
+    },
+    {
+      "from": "master",
+      "to": "update",
+      "label": "",
+      "id": "flow05",
+      "bidirectional": true
+    },
+    {
+      "from": "update",
+      "to": "results",
+      "label": "",
+      "id": "flow07"
+    }
+  ]
+}

@@ -1,12 +1,77 @@
 {
   "standard": "ISO 5807:1985",
   "version": "1.1.0",
+  "chart_types": {
+    "data-flowchart": {
+      "iso_section": "ISO 5807:1985 §4",
+      "name_en": "Data flowchart",
+      "name_vi": "Lưu đồ luồng dữ liệu",
+      "summary": "Biểu diễn đường đi của dữ liệu và phương tiện dữ liệu qua các bước xử lý; bắt đầu và kết thúc bằng ký hiệu dữ liệu (hoặc ký hiệu đặc biệt §9.4)."
+    },
+    "program-flowchart": {
+      "iso_section": "ISO 5807:1985 §5",
+      "name_en": "Program flowchart",
+      "name_vi": "Lưu đồ chương trình / thuật toán",
+      "summary": "Biểu diễn trình tự thao tác và luồng điều khiển (bắt đầu/kết thúc bằng Terminator §9.4.2, rẽ nhánh Decision §9.2.2.4, vòng lặp Loop Limit §9.2.2.6)."
+    },
+    "system-flowchart": {
+      "iso_section": "ISO 5807:1985 §6",
+      "name_en": "System flowchart",
+      "name_vi": "Lưu đồ hệ thống",
+      "summary": "Kết hợp luồng điều khiển vận hành với luồng dữ liệu (nhập liệu thủ công, tệp đĩa, màn hình hiển thị, chứng từ đầu ra)."
+    },
+    "program-network": {
+      "iso_section": "ISO 5807:1985 §7",
+      "name_en": "Program network chart",
+      "name_vi": "Sơ đồ mạng chương trình",
+      "summary": "Biểu diễn kích hoạt giữa các chương trình (Control transfer §9.3.2.1 với mã P, T, I) và tương tác dữ liệu; mỗi chương trình xuất hiện một lần."
+    },
+    "system-resources": {
+      "iso_section": "ISO 5807:1985 §8",
+      "name_en": "System resources chart",
+      "name_vi": "Sơ đồ tài nguyên hệ thống",
+      "summary": "Biểu diễn cấu hình các đơn vị dữ liệu/lưu trữ và đơn vị xử lý (gồm quan hệ đọc/ghi hai chiều) phục vụ bài toán."
+    }
+  },
+  "line_symbols": {
+    "flow": {
+      "name_vi": "Đường luồng (Flowline)",
+      "name_en": "Line (Basic flowline)",
+      "iso_section": "ISO 5807:1985 §9.3.1",
+      "origin": "iso5807",
+      "supports_bidirectional": true,
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"]
+    },
+    "control_transfer": {
+      "name_vi": "Chuyển điều khiển (Control Transfer)",
+      "name_en": "Control transfer",
+      "iso_section": "ISO 5807:1985 §9.3.2.1",
+      "origin": "iso5807",
+      "allowed_charts": ["program-network"]
+    },
+    "communication_link": {
+      "name_vi": "Liên kết truyền thông (Communication Link)",
+      "name_en": "Communication link",
+      "iso_section": "ISO 5807:1985 §9.3.2.2",
+      "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"]
+    },
+    "dashed": {
+      "name_vi": "Đường nét đứt (Dashed Line)",
+      "name_en": "Dashed line",
+      "iso_section": "ISO 5807:1985 §9.3.2.3",
+      "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"]
+    }
+  },
   "symbols": {
     "terminator": {
       "name_vi": "Điểm đầu / Điểm cuối (Terminator)",
       "name_en": "Terminator",
       "iso_section": "ISO 5807:1985 §9.4.2",
+      "category": "special",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.terminator;whiteSpace=wrap;html=1;",
       "svg_primitive": "stadium",
       "default_width": 130,
@@ -18,31 +83,37 @@
       "name_vi": "Xử lý / Thao tác (Process)",
       "name_en": "Process",
       "iso_section": "ISO 5807:1985 §9.2.1",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "rounded=0;whiteSpace=wrap;html=1;",
       "svg_primitive": "rect",
       "default_width": 160,
       "default_height": 64,
       "theme_slot": "neutral",
-      "usage": "Bước xử lý, tính toán, hành động nghiệp vụ rõ ràng (bắt đầu bằng động từ)."
+      "usage": "Bước xử lý, tính toán, hành động nghiệp vụ hoặc chương trình xử lý rõ ràng."
     },
     "decision": {
       "name_vi": "Quyết định / Rẽ nhánh (Decision)",
       "name_en": "Decision",
       "iso_section": "ISO 5807:1985 §9.2.2.4",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart", "system-flowchart"],
       "drawio_style": "shape=mxgraph.flowchart.decision;whiteSpace=wrap;html=1;",
       "svg_primitive": "diamond",
       "default_width": 150,
       "default_height": 96,
       "theme_slot": "accent",
-      "usage": "Kiểm tra điều kiện rẽ nhánh: có duy nhất 1 lối vào (§9.2.2.4) và >=2 lối ra bắt buộc gắn nhãn điều kiện rõ ràng như Có/Không (§10.3.1)."
+      "usage": "Kiểm tra điều kiện rẽ nhánh: duy nhất 1 lối vào (§9.2.2.4) và >=2 lối ra bắt buộc gắn nhãn điều kiện rõ ràng (§10.3.1; hỗ trợ nhánh từ 2 đến N đường ra)."
     },
     "data": {
       "name_vi": "Dữ liệu Vào / Ra (Data I/O)",
       "name_en": "Data (Input/Output)",
       "iso_section": "ISO 5807:1985 §9.1.1.1",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=parallelogram;perimeter=parallelogramPerimeter;size=0.16;whiteSpace=wrap;html=1;",
       "svg_primitive": "parallelogram",
       "default_width": 165,
@@ -54,7 +125,9 @@
       "name_vi": "Quy trình định sẵn (Predefined Process)",
       "name_en": "Predefined Process / Subroutine",
       "iso_section": "ISO 5807:1985 §9.2.2.1",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart", "system-flowchart"],
       "drawio_style": "shape=process;whiteSpace=wrap;rounded=0;size=0.12;html=1;",
       "svg_primitive": "predefined_process",
       "default_width": 165,
@@ -66,7 +139,9 @@
       "name_vi": "Tài liệu / Biểu mẫu (Document)",
       "name_en": "Document",
       "iso_section": "ISO 5807:1985 §9.1.2.4",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.document2;whiteSpace=wrap;html=1;size=0.22;",
       "svg_primitive": "document",
       "default_width": 155,
@@ -75,22 +150,26 @@
       "usage": "Biểu mẫu, biên bản, hóa đơn, báo cáo người đọc được (in ấn hoặc PDF/hồ sơ)."
     },
     "multi_document": {
-      "name_vi": "Tập tài liệu (Multi-Document)",
+      "name_vi": "Tập tài liệu chồng lớp (Multi-Document)",
       "name_en": "Multiple Documents",
       "iso_section": "ISO 5807:1985 §9.1.2.4 & §10.3.2",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.multi-document;whiteSpace=wrap;html=1;",
       "svg_primitive": "multi_document",
       "default_width": 160,
       "default_height": 72,
       "theme_slot": "warning",
-      "usage": "Bộ hồ sơ nhiều chứng từ xếp lớp theo quy ước biểu diễn lặp lại (§10.3.2)."
+      "usage": "Bộ hồ sơ nhiều chứng từ xếp lớp theo §10.3.2 (hỗ trợ trường 'items' để gắn nhãn riêng cho từng chứng từ từ trước ra sau)."
     },
     "database": {
       "name_vi": "Cơ sở dữ liệu / Đĩa từ (Magnetic Disk / DB)",
       "name_en": "Database / Magnetic Disk",
       "iso_section": "ISO 5807:1985 §9.1.2.3",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.database;whiteSpace=wrap;html=1;",
       "svg_primitive": "cylinder",
       "default_width": 135,
@@ -102,19 +181,23 @@
       "name_vi": "Truy cập trực tiếp (Direct Access Storage)",
       "name_en": "Direct Access Storage",
       "iso_section": "ISO 5807:1985 §9.1.2.3",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.direct_data;whiteSpace=wrap;html=1;",
       "svg_primitive": "direct_data",
       "default_width": 155,
       "default_height": 64,
       "theme_slot": "secondary",
-      "usage": "Bộ nhớ truy cập ngẫu nhiên/trực tiếp (hình trụ ngang theo §9.1.2.3: cache, key-value, SSD store)."
+      "usage": "Bộ nhớ truy cập ngẫu nhiên/trực tiếp (hình trụ ngang theo §9.1.2.3: đĩa từ, cache, SSD store)."
     },
     "stored_data": {
       "name_vi": "Dữ liệu lưu trữ (Stored Data)",
       "name_en": "Stored Data",
       "iso_section": "ISO 5807:1985 §9.1.1.2",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.stored_data;whiteSpace=wrap;html=1;",
       "svg_primitive": "stored_data",
       "default_width": 155,
@@ -126,19 +209,23 @@
       "name_vi": "Lưu trữ tuần tự (Sequential Access Storage)",
       "name_en": "Sequential Access Storage",
       "iso_section": "ISO 5807:1985 §9.1.2.2",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.sequential_data;whiteSpace=wrap;html=1;",
       "svg_primitive": "sequential_data",
       "default_width": 96,
       "default_height": 84,
       "theme_slot": "secondary",
-      "usage": "Event log chỉ ghi nối tiếp, băng từ, hàng đợi stream tuần tự."
+      "usage": "Tệp tuần tự, event log chỉ ghi nối tiếp, băng từ."
     },
     "internal_storage": {
       "name_vi": "Bộ nhớ trong (Internal Storage)",
       "name_en": "Internal Storage",
       "iso_section": "ISO 5807:1985 §9.1.2.1",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=internalStorage;whiteSpace=wrap;html=1;dx=16;dy=16;",
       "svg_primitive": "internal_storage",
       "default_width": 155,
@@ -146,11 +233,41 @@
       "theme_slot": "secondary",
       "usage": "Biến/cấu trúc dữ liệu giữ trong bộ nhớ RAM lúc thực thi."
     },
+    "card": {
+      "name_vi": "Thẻ dữ liệu (Card)",
+      "name_en": "Card",
+      "iso_section": "ISO 5807:1985 §9.1.2.6",
+      "category": "data",
+      "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
+      "drawio_style": "shape=card;whiteSpace=wrap;html=1;size=18;",
+      "svg_primitive": "card",
+      "default_width": 155,
+      "default_height": 64,
+      "theme_slot": "secondary",
+      "usage": "Dữ liệu mang trên thẻ đục lỗ, thẻ từ, thẻ thông minh hoặc thẻ vật lý."
+    },
+    "paper_tape": {
+      "name_vi": "Băng giấy đục lỗ (Punched / Paper Tape)",
+      "name_en": "Punched Tape / Paper Tape",
+      "iso_section": "ISO 5807:1985 §9.1.2.7",
+      "category": "data",
+      "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
+      "drawio_style": "shape=tape;whiteSpace=wrap;html=1;size=0.19;",
+      "svg_primitive": "paper_tape",
+      "default_width": 155,
+      "default_height": 68,
+      "theme_slot": "secondary",
+      "usage": "Dữ liệu lưu trên băng giấy đục lỗ hoặc băng ghi vật lý theo ISO 5807:1985 §9.1.2.7."
+    },
     "preparation": {
       "name_vi": "Chuẩn bị / Khởi tạo (Preparation)",
       "name_en": "Preparation",
       "iso_section": "ISO 5807:1985 §9.2.2.3",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart", "system-flowchart"],
       "drawio_style": "shape=hexagon;perimeter=hexagonPerimeter2;size=0.20;whiteSpace=wrap;html=1;",
       "svg_primitive": "hexagon",
       "default_width": 165,
@@ -162,19 +279,23 @@
       "name_vi": "Thao tác thủ công (Manual Operation)",
       "name_en": "Manual Operation",
       "iso_section": "ISO 5807:1985 §9.2.2.2",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "system-resources"],
       "drawio_style": "shape=trapezoid;perimeter=trapezoidPerimeter;size=0.16;whiteSpace=wrap;html=1;flipV=1;",
       "svg_primitive": "manual_operation",
       "default_width": 165,
       "default_height": 64,
       "theme_slot": "warning",
-      "usage": "Công việc do con người thực hiện bằng tay (kiểm đếm vật lý, ký giấy, đóng gói)."
+      "usage": "Công việc do con người thực hiện bằng tay (kiểm đếm vật lý, ký giấy, lưu hồ sơ)."
     },
     "manual_input": {
       "name_vi": "Nhập liệu thủ công (Manual Input)",
       "name_en": "Manual Input",
       "iso_section": "ISO 5807:1985 §9.1.2.5",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=manualInput;boundedLbl=1;size=16;whiteSpace=wrap;html=1;",
       "svg_primitive": "manual_input",
       "default_width": 155,
@@ -183,100 +304,130 @@
       "usage": "Người dùng nhập trực tiếp trên bàn phím, biểu mẫu web, máy quét mã vạch."
     },
     "on_page_connector": {
-      "name_vi": "Điểm nối cùng trang (On-Page Connector)",
-      "name_en": "Connector (On-Page)",
+      "name_vi": "Điểm nối (Connector)",
+      "name_en": "Connector",
       "iso_section": "ISO 5807:1985 §9.4.1 & §10.2.2",
+      "category": "special",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.on-page_reference;whiteSpace=wrap;html=1;",
       "svg_primitive": "circle",
       "default_width": 44,
       "default_height": 44,
       "theme_slot": "primary",
-      "usage": "Cặp nút tròn cùng mã chữ/số (A -> A) để thay thế đường nối dài gây cắt chéo."
+      "usage": "Cặp nút tròn cùng mã (A -> A hoặc λ1 giữa hai trang kèm chú thích trang theo §10.2.2)."
     },
     "off_page_connector": {
-      "name_vi": "Điểm nối khác trang (Off-Page Connector)",
-      "name_en": "Off-Page Connector",
-      "iso_section": "ANSI X3.5 / Mở rộng thực hành (ISO 5807 dùng §9.4.1 & §10.2.2)",
+      "name_vi": "Điểm nối khác trang (Off-Page Connector — Mở rộng)",
+      "name_en": "Off-Page Connector (Extension)",
+      "iso_section": "ANSI X3.5 / Mở rộng thực hành (ngoài ISO 5807:1985; ISO gốc dùng §9.4.1 & §10.2.2)",
+      "category": "special",
       "origin": "extension",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart"],
       "drawio_style": "shape=offPageConnector;size=0.35;whiteSpace=wrap;html=1;",
       "svg_primitive": "off_page",
       "default_width": 64,
       "default_height": 58,
       "theme_slot": "primary",
-      "usage": "Chuyển tiếp luồng sang trang sơ đồ khác (ghi rõ mã & trang đích)."
+      "usage": "Ký hiệu ngũ giác mở rộng ANSI X3.5 chuyển luồng sang trang khác (ghi rõ mã & trang đích)."
     },
     "loop_limit_start": {
       "name_vi": "Đầu vòng lặp (Loop Limit Start)",
       "name_en": "Loop Limit (Start)",
       "iso_section": "ISO 5807:1985 §9.2.2.6",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart"],
       "drawio_style": "shape=mxgraph.flowchart.loop_limit;whiteSpace=wrap;html=1;",
       "svg_primitive": "loop_start",
       "default_width": 155,
       "default_height": 58,
       "theme_slot": "neutral",
-      "usage": "Mở đầu khối lặp kèm tên vòng lặp & điều kiện khởi đầu/dừng."
+      "usage": "Mở đầu khối lặp kèm mã vòng lặp ('loop_id' hoặc dòng đầu nhãn) & điều kiện khởi đầu/kiểm tra."
     },
     "loop_limit_end": {
       "name_vi": "Cuối vòng lặp (Loop Limit End)",
       "name_en": "Loop Limit (End)",
       "iso_section": "ISO 5807:1985 §9.2.2.6",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart"],
       "drawio_style": "shape=mxgraph.flowchart.loop_limit;flipV=1;whiteSpace=wrap;html=1;",
       "svg_primitive": "loop_end",
       "default_width": 155,
       "default_height": 58,
       "theme_slot": "neutral",
-      "usage": "Đóng khối lặp (phải khớp tên vòng lặp với Loop Limit Start)."
+      "usage": "Đóng khối lặp (bắt buộc khớp đúng mã vòng lặp với Loop Limit Start tương ứng)."
     },
     "delay": {
-      "name_vi": "Chờ / Độ trễ (Delay)",
-      "name_en": "Delay",
+      "name_vi": "Chờ / Độ trễ (Delay — Mở rộng)",
+      "name_en": "Delay (Extension)",
       "iso_section": "ANSI / ASME mở rộng (không thuộc ISO 5807:1985)",
+      "category": "process",
       "origin": "extension",
+      "allowed_charts": ["program-flowchart", "system-flowchart"],
       "drawio_style": "shape=mxgraph.flowchart.delay;whiteSpace=wrap;html=1;",
       "svg_primitive": "delay",
       "default_width": 140,
       "default_height": 58,
       "theme_slot": "warning",
-      "usage": "Khoảng chờ bắt buộc (timeout, SLA duyệt, chờ batch đêm)."
+      "usage": "Ký hiệu mở rộng ngoài ISO 5807:1985 cho khoảng chờ bắt buộc (timeout, SLA duyệt, batch đêm)."
     },
     "display": {
       "name_vi": "Hiển thị màn hình (Display)",
       "name_en": "Display",
       "iso_section": "ISO 5807:1985 §9.1.2.8",
+      "category": "data",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "shape=mxgraph.flowchart.display;whiteSpace=wrap;html=1;",
       "svg_primitive": "display",
       "default_width": 150,
       "default_height": 62,
       "theme_slot": "secondary",
-      "usage": "Hiển thị thông báo, dashboard, màn hình cảnh báo cho người vận hành."
+      "usage": "Hiển thị thông báo, dashboard, màn hình tra cứu/cảnh báo cho người vận hành."
     },
     "parallel_mode": {
       "name_vi": "Đồng bộ song song (Parallel Mode)",
       "name_en": "Parallel Mode",
       "iso_section": "ISO 5807:1985 §9.2.2.5",
+      "category": "process",
       "origin": "iso5807",
+      "allowed_charts": ["program-flowchart", "system-flowchart"],
       "drawio_style": "shape=mxgraph.flowchart.parallel_mode;whiteSpace=wrap;html=1;",
       "svg_primitive": "parallel_mode",
       "default_width": 140,
       "default_height": 24,
       "theme_slot": "primary",
-      "usage": "Cặp hai đường ngang song song đánh dấu tách (fork) hoặc gom (join) các nhánh đồng thời."
+      "usage": "Cặp hai đường ngang song song đánh dấu tách (fork) hoặc đồng bộ gom (join) các nhánh đồng thời."
     },
     "annotation": {
       "name_vi": "Chú thích (Annotation / Comment)",
       "name_en": "Annotation",
       "iso_section": "ISO 5807:1985 §9.4.3",
+      "category": "special",
       "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
       "drawio_style": "html=1;shape=mxgraph.flowchart.annotation_2;align=left;labelPosition=right;whiteSpace=wrap;",
       "svg_primitive": "annotation",
       "default_width": 170,
       "default_height": 64,
       "theme_slot": "neutral",
-      "usage": "Ghi chú giải thích bổ sung nối bằng đường nét đứt không mũi tên."
+      "usage": "Ghi chú giải thích bổ sung hoặc tham chiếu trang (§10.2.2) nối bằng đường nét đứt không mũi tên."
+    },
+    "ellipsis": {
+      "name_vi": "Dấu chấm lửng (Ellipsis)",
+      "name_en": "Ellipsis",
+      "iso_section": "ISO 5807:1985 §9.4.4",
+      "category": "special",
+      "origin": "iso5807",
+      "allowed_charts": ["data-flowchart", "program-flowchart", "system-flowchart", "program-network", "system-resources"],
+      "drawio_style": "rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;isoSymbol=ellipsis;",
+      "svg_primitive": "ellipsis",
+      "default_width": 90,
+      "default_height": 44,
+      "theme_slot": "neutral",
+      "usage": "Ba dấu chấm liên tiếp biểu thị bỏ lược một hoặc nhiều ký hiệu lặp lại không cần vẽ chi tiết (§9.4.4)."
     }
   }
 }
