@@ -3,6 +3,8 @@
 [![CI](https://github.com/vietdq99tb/pro-diagrams/actions/workflows/ci.yml/badge.svg)](https://github.com/vietdq99tb/pro-diagrams/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2B373E.svg)](./LICENSE)
 
+**English** | [Tiếng Việt](./README.vi.md)
+
 An **Agent Skill** for designing, validating, and rendering publication-grade **ISO 5807:1985 process flowcharts**, **cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **data-verified quantitative charts**, and **mathematical function plots** — running **100% on the Python 3 standard library** with zero `pip install` or desktop GUI dependencies.
 
 Built with the **Atelier Technical Warm** palette (WCAG AA/AAA verified) and **Open Sans** typography (full Vietnamese diacritic safety).
