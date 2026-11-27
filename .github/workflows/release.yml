@@ -1,0 +1,87 @@
+name: Release — Build & Publish pro-diagrams.skill
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Test, Package & Publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run 30 stdlib regression & adversarial tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v
+
+      - name: Package pro-diagrams.skill archive
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -B - <<'PY'
+          import os
+          import zipfile
+
+          src = "skills/pro-diagrams"
+          out = "pro-diagrams.skill"
+          excluded_dirs = {"__pycache__", "evals", ".git"}
+          excluded_exts = {".pyc", ".pyo"}
+
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, dirs, files in os.walk(src):
+                  dirs[:] = sorted(d for d in dirs if d not in excluded_dirs)
+                  for fn in sorted(files):
+                      if fn == ".DS_Store" or os.path.splitext(fn)[1] in excluded_exts:
+                          continue
+                      full = os.path.join(root, fn)
+                      arc = os.path.join("pro-diagrams", os.path.relpath(full, src))
+                      zf.write(full, arc)
+
+          with zipfile.ZipFile(out) as zf:
+              names = zf.namelist()
+              assert "pro-diagrams/SKILL.md" in names, "Missing SKILL.md"
+              assert "pro-diagrams/data/APACHE-2.0.txt" in names, "Missing APACHE-2.0.txt"
+              assert not any("__pycache__" in n or n.endswith(".pyc") for n in names), "Bytecode leaked"
+              print(f"Packaged {out}: {os.path.getsize(out)} bytes, {len(names)} entries")
+          PY
+
+      - name: Publish GitHub Release with pro-diagrams.skill
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          cat <<'EOF' > /tmp/release_notes.md
+          ## Pro. Diagrams (`pro-diagrams`)
+
+          Zero-dependency (100% Python 3 stdlib) Agent Skill for publication-grade **ISO 5807:1985 process flowcharts**, **ISO 5807 cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **`data-*`-verified quantitative charts**, and **mathematical function plots** styled with the **Atelier Technical Warm** palette (WCAG AA/AAA) and **Open Sans** typography.
+
+          ### Highlights
+          - **Strict upfront JSON spec validation (`iso5807_builder.py`):** Rejects unknown node `type` (with typo suggestions), dangling edge `from`/`to`, unknown `lane`/`attach_to`/`slot`/`kind`/`direction`/`role` before layout instead of silently falling back.
+          - **12-rule ISO 5807:1985, Swimlane & WCAG AA linter (`validate_iso5807.py`):** Enforces `E-ISO-DECISION-ENTRY` (**ISO 5807:1985 §9.2.2.4** single entrance), binds every rule to its exact standard clause in `diagnostics[]` and `supportedFixes[]`, and aligns all 23 cataloged symbols to verified `§9.x / §10.x` clauses.
+          - **Strict DAG cycle guard for CPM (`kind: "cpm"`):** Aborts immediately with exact cycle chain and involved task IDs on circular dependencies, while preserving outer-corridor retry loops for ISO 5807 flowcharts & swimlanes.
+          - **Ready-to-run `examples/`:** Includes verified `iso5807-payment-retry`, `swimlane-rd-procurement` (4-lane + SOP Runbook), and `waterfall-opex-2026` specs and pre-rendered outputs.
+          - **Complete Apache-2.0 attribution:** Bundles full verbatim `data/APACHE-2.0.txt` alongside `data/shape-index.json.gz` per Apache-2.0 Section 4(a).
+          - **30/30 stdlib regression & adversarial tests** verified in CI on Python 3.11 & 3.12.
+
+          ### Installation / Cài đặt nhanh
+          - **Agent Skills CLI:** `npx skills add vietdq99tb/pro-diagrams`
+          - **Claude Desktop / Offline ZIP:** Download `pro-diagrams.skill` attached below and import under *Capabilities → Skills* (or `unzip pro-diagrams.skill -d ~/.claude/skills/`).
+          EOF
+
+          gh release create "$TAG_NAME" pro-diagrams.skill \
+            --title "Pro. Diagrams $TAG_NAME — ISO 5807:1985 Flowcharts, Swimlane SOPs, CPM & Honest Charts" \
+            --notes-file /tmp/release_notes.md
