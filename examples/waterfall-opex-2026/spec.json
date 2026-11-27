@@ -1,0 +1,20 @@
+{
+  "chart_type": "waterfall",
+  "title": "Biến động Chi phí Vận hành 2025 → 2026",
+  "subtitle": "Đơn vị: triệu đồng · Dữ liệu minh họa kiểm định bảo toàn tổng data-*",
+  "unit": " tr",
+  "source": "Ví dụ chuẩn Pro. Diagrams (Atelier Technical Warm)",
+  "kpis": [
+    { "label": "Chi phí 2025", "value": "850 tr", "delta": "Mốc đầu kỳ" },
+    { "label": "Tiết kiệm tối ưu", "value": "-240 tr", "delta": "Lưu trữ lạnh + Tự động hóa" },
+    { "label": "Chốt 2026", "value": "860 tr", "delta": "+10 tr (+1.2% YoY)" }
+  ],
+  "steps": [
+    { "label": "2025", "kind": "start", "value": 850 },
+    { "label": "Quy mô dữ liệu", "kind": "delta", "value": 210 },
+    { "label": "Lưu trữ lạnh", "kind": "delta", "value": -145 },
+    { "label": "Tự động hóa", "kind": "delta", "value": -95 },
+    { "label": "Bản quyền mới", "kind": "delta", "value": 40 },
+    { "label": "2026", "kind": "total" }
+  ]
+}

@@ -27,14 +27,16 @@ Third-Party Notices & Attributions
 1. Baseline Kernel:
    Derived from Agents365-ai/drawio-skill (MIT License, Copyright (c) 2026 Agents365-ai).
 
-2. Shape Search Index (`data/shape-index.json.gz`):
+2. Shape Search Index (`skills/pro-diagrams/data/shape-index.json.gz`):
    Licensed under the Apache License 2.0. Derived from jgraph/drawio-mcp and the
    official draw.io / diagrams.net shape libraries (jgraph/drawio).
-   See `data/SHAPE-INDEX-NOTICE.md` for full upstream attribution and regeneration notes.
+   Full verbatim Apache License 2.0 text is bundled in
+   `skills/pro-diagrams/data/APACHE-2.0.txt` (per Apache-2.0 Section 4(a));
+   see `skills/pro-diagrams/data/SHAPE-INDEX-NOTICE.md` for upstream attribution
+   and regeneration notes.
 
 3. Conceptual & QA Methodology Acknowledgments:
    - `cathrynlavery/diagram-design` (MIT License): Conceptual inspiration for `data-*`
      mathematical-honesty verification and visual quality checklists in Track B charts.
    - `tt-a1i/archify` (Apache License 2.0): Conceptual inspiration for structured
      linter `diagnostics[]` and `supportedFixes[]` contracts.
-

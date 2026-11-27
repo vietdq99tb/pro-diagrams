@@ -33,8 +33,28 @@ jobs:
             exit 1
           fi
 
-      - name: Run 26 stdlib regression & adversarial tests
+      - name: Run 30 stdlib regression & adversarial tests
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v
+
+      - name: Verify runnable examples compile and pass strict validation
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -B skills/pro-diagrams/scripts/iso5807_builder.py \
+            examples/iso5807-payment-retry/spec.json \
+            -o /tmp/ci_retry.drawio --render-svg /tmp/ci_retry.svg --render-html /tmp/ci_retry.html
+          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py /tmp/ci_retry.drawio --strict --score
+
+          python3 -B skills/pro-diagrams/scripts/iso5807_builder.py \
+            examples/swimlane-rd-procurement/spec.json \
+            -o /tmp/ci_proc.drawio --render-svg /tmp/ci_proc.svg --render-html /tmp/ci_proc.html --render-runbook /tmp/ci_proc_rb.html
+          python3 -B skills/pro-diagrams/scripts/validate_iso5807.py /tmp/ci_proc.drawio --strict --score
+
+          python3 -B skills/pro-diagrams/scripts/chart_builder.py \
+            examples/waterfall-opex-2026/spec.json \
+            -o /tmp/ci_wf.html --svg /tmp/ci_wf.svg
+          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_wf.html
+          python3 -B skills/pro-diagrams/scripts/chart_verify.py /tmp/ci_wf.svg

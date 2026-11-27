@@ -14,6 +14,7 @@ Usage:
   python3 iso5807_builder.py spec.json -o diagram.drawio [--preset tech-warm-light] [--render-svg diagram.svg]
 """
 import argparse
+import difflib
 import html
 import json
 import math
@@ -25,6 +26,17 @@ from collections import defaultdict, deque
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(HERE)
+
+VALID_KINDS = ("iso5807-flowchart", "swimlane", "topological-graph", "cpm")
+VALID_DIRECTIONS = ("TB", "LR")
+VALID_EDGE_ROLES = ("", "normal", "default", "error", "critical")
+
+
+def _suggest_match(value, valid_values):
+    matches = difflib.get_close_matches(str(value), sorted(valid_values), n=3, cutoff=0.6)
+    if not matches:
+        return ""
+    return f" (did you mean: {', '.join(repr(m) for m in matches)}?)"
 
 
 def _snap(v, grid=10):
@@ -49,7 +61,9 @@ def _wrap_lines(label, max_chars=22):
 
 
 def _measure_node_box(sym_key, label, sym_catalog):
-    info = sym_catalog.get(sym_key) or sym_catalog["process"]
+    if sym_key not in sym_catalog:
+        raise ValueError(f"unknown ISO 5807 symbol type {sym_key!r}")
+    info = sym_catalog[sym_key]
     dw, dh = info["default_width"], info["default_height"]
     if sym_key == "terminator":
         dh = max(dh, 60)
@@ -140,16 +154,108 @@ def _compute_dag_ranks_and_backedges(node_ids, edges, explicit_ranks=None):
     return ranks, back_edge_ids
 
 
-def _compute_cpm(nodes, edges, back_edge_ids):
-    """Compute ES, EF, LS, LF, TF and return (metrics_by_id, critical_nodes, critical_edge_ids)."""
+def _find_cycle_in_graph(node_ids, edges):
+    """Detect directed cycles on full edge set; return (cycle_path, cyclic_nodes) or (None, set())."""
+    node_set = set(node_ids)
+    adj = defaultdict(list)
+    self_loops = set()
+    for e in edges:
+        u, v = e["from"], e["to"]
+        if u in node_set and v in node_set:
+            adj[u].append(v)
+            if u == v:
+                self_loops.add(u)
+
+    # Tarjan's strongly connected components to isolate exact nodes participating in any cycle
+    index_counter = [0]
+    index_map = {}
+    lowlink = {}
+    tarjan_stack = []
+    on_stack = set()
+    cyclic_nodes = set(self_loops)
+
+    def strongconnect(u):
+        index_map[u] = index_counter[0]
+        lowlink[u] = index_counter[0]
+        index_counter[0] += 1
+        tarjan_stack.append(u)
+        on_stack.add(u)
+        for v in adj[u]:
+            if v not in index_map:
+                strongconnect(v)
+                lowlink[u] = min(lowlink[u], lowlink[v])
+            elif v in on_stack:
+                lowlink[u] = min(lowlink[u], index_map[v])
+        if lowlink[u] == index_map[u]:
+            scc = []
+            while True:
+                w = tarjan_stack.pop()
+                on_stack.remove(w)
+                scc.append(w)
+                if w == u:
+                    break
+            if len(scc) > 1:
+                cyclic_nodes.update(scc)
+
+    for nid in node_ids:
+        if nid not in index_map:
+            strongconnect(nid)
+
+    if not cyclic_nodes:
+        return None, set()
+
+    # Reconstruct one concrete directed cycle path for clear diagnostics
+    color = {}  # 0=unvisited, 1=visiting, 2=done
+    dfs_stack = []
+    pos_in_stack = {}
+    cycle_path = None
+
+    def find_path(u):
+        nonlocal cycle_path
+        color[u] = 1
+        pos_in_stack[u] = len(dfs_stack)
+        dfs_stack.append(u)
+        for v in adj[u]:
+            if cycle_path is not None:
+                return
+            st = color.get(v, 0)
+            if st == 1:
+                cycle_path = dfs_stack[pos_in_stack[v]:] + [v]
+                return
+            if st == 0:
+                find_path(v)
+        dfs_stack.pop()
+        del pos_in_stack[u]
+        color[u] = 2
+
+    for nid in node_ids:
+        if nid in cyclic_nodes and color.get(nid, 0) == 0 and cycle_path is None:
+            find_path(nid)
+
+    return cycle_path, cyclic_nodes
+
+
+def _compute_cpm(nodes, edges, back_edge_ids=None):
+    """Compute ES, EF, LS, LF, TF on a strict DAG; abort with cycle details if cyclic."""
     node_ids = [n["id"] for n in nodes]
     dur = {n["id"]: float(n.get("duration", 0)) for n in nodes}
+
+    cycle_path, cyclic_nodes = _find_cycle_in_graph(node_ids, edges)
+    if cycle_path:
+        involved = [nid for nid in node_ids if nid in cyclic_nodes]
+        chain = " -> ".join(cycle_path)
+        raise ValueError(
+            f"CPM dependency cycle detected: {chain} "
+            f"(tasks involved: {', '.join(involved)}); "
+            f"Critical Path Method requires an acyclic graph (DAG)"
+        )
+
     adj = defaultdict(list)
     rev = defaultdict(list)
     indeg = {nid: 0 for nid in node_ids}
     for e in edges:
         eid, u, v = e["id"], e["from"], e["to"]
-        if eid in back_edge_ids or u not in dur or v not in dur:
+        if u not in dur or v not in dur:
             continue
         adj[u].append((v, eid))
         rev[v].append((u, eid))
@@ -165,6 +271,13 @@ def _compute_cpm(nodes, edges, back_edge_ids):
             if indeg[v] == 0:
                 q.append(v)
 
+    if len(topo) != len(node_ids):
+        remaining = [nid for nid in node_ids if nid not in set(topo)]
+        raise ValueError(
+            f"CPM dependency cycle detected involving tasks: {', '.join(remaining)}; "
+            f"Critical Path Method requires an acyclic graph (DAG)"
+        )
+
     es, ef = {}, {}
     for u in topo:
         es[u] = max((ef[p] for p, _ in rev[u]), default=0.0)
@@ -179,8 +292,6 @@ def _compute_cpm(nodes, edges, back_edge_ids):
     metrics = {}
     crit_nodes = set()
     for nid in node_ids:
-        if nid not in es:
-            continue
         tf = round(ls[nid] - es[nid], 4)
         is_crit = abs(tf) < 1e-6
         if is_crit:
@@ -429,29 +540,58 @@ def compile_spec_to_drawio(spec, preset_name=None):
     font_color = _safe_style_val(preset_extras.get("fontColor", theme_tok["ink"]))
     stroke_w = preset_extras.get("globalStrokeWidth", 1.5)
 
-    kind = (spec.get("kind") or "iso5807-flowchart").lower()
-    direction = (spec.get("direction") or ("LR" if kind in ("cpm", "topological-graph") else "TB")).upper()
+    raw_kind = spec.get("kind")
+    if raw_kind is not None and not isinstance(raw_kind, str):
+        raise ValueError(f"invalid spec field 'kind': expected string, got {type(raw_kind).__name__}")
+    kind = (raw_kind or "iso5807-flowchart").strip().lower()
+    if kind not in VALID_KINDS:
+        hint = _suggest_match(kind, VALID_KINDS)
+        raise ValueError(
+            f"invalid spec field 'kind': {raw_kind!r}{hint}; valid values: {', '.join(VALID_KINDS)}"
+        )
+
+    raw_dir = spec.get("direction")
+    if raw_dir is not None and not isinstance(raw_dir, str):
+        raise ValueError(f"invalid spec field 'direction': expected string, got {type(raw_dir).__name__}")
+    direction = (raw_dir or ("LR" if kind in ("cpm", "topological-graph") else "TB")).strip().upper()
+    if direction not in VALID_DIRECTIONS:
+        raise ValueError(
+            f"invalid spec field 'direction': {raw_dir!r}; valid values: {', '.join(VALID_DIRECTIONS)}"
+        )
+
     title = spec.get("title") or "Sơ đồ Quy trình Chuẩn ISO 5807"
     subtitle = spec.get("subtitle") or ""
     unit = spec.get("duration_unit") or "ngày"
 
-    lanes_spec = list(spec.get("lanes") or [])
+    raw_lanes = spec.get("lanes")
+    if raw_lanes is not None and not isinstance(raw_lanes, list):
+        raise ValueError("spec field 'lanes' must be a JSON list")
+    lanes_spec = list(raw_lanes or [])
+    if kind == "swimlane" and not lanes_spec:
+        raise ValueError("spec with kind='swimlane' must define a non-empty 'lanes' list")
     has_swimlanes = (kind == "swimlane") or bool(lanes_spec)
 
     # Reserve all structural, lane, and node IDs BEFORE assigning edge IDs (prevents E-DUP-ID)
     used_ids = {"0", "1", "title_banner"}
+    lane_ids = []
+    lane_id_set = set()
     if has_swimlanes and lanes_spec:
         if spec.get("pool_title"):
             used_ids.add("pool_main")
         for lspec in lanes_spec:
-            lid = str(lspec.get("id") or "").strip()
+            if not isinstance(lspec, dict):
+                raise ValueError("each entry in 'lanes' must be a JSON object")
+            raw_lid = lspec.get("id")
+            lid = str(raw_lid).strip() if raw_lid is not None else ""
             if not lid:
                 raise ValueError("each swimlane must define a non-empty 'id'")
             if lid in used_ids:
                 raise ValueError(f"duplicate or reserved lane id {lid!r}")
             used_ids.add(lid)
+            lane_ids.append(lid)
+            lane_id_set.add(lid)
 
-    # Separate annotation nodes from flow nodes with strict duplicate ID checking
+    # Separate annotation nodes from flow nodes with strict schema & type validation
     flow_nodes = []
     annot_nodes = []
     alias_map = {
@@ -462,13 +602,15 @@ def compile_spec_to_drawio(spec, preset_name=None):
         "db": "database", "manual": "manual_operation",
         "comment": "annotation", "note": "annotation",
     }
+    valid_type_names = sorted(sym_catalog.keys())
+    all_known_type_names = set(valid_type_names) | set(alias_map.keys())
     auto_node_seq = 1
     for n in raw_nodes_in:
         if not isinstance(n, dict):
             raise ValueError("each entry in 'nodes' must be a JSON object")
         ncopy = dict(n)
         if n.get("id") is not None and str(n.get("id")).strip() != "":
-            nid = str(n["id"])
+            nid = str(n["id"]).strip()
             if nid in used_ids:
                 raise ValueError(f"duplicate or reserved node id {nid!r}")
         else:
@@ -479,21 +621,107 @@ def compile_spec_to_drawio(spec, preset_name=None):
         used_ids.add(nid)
         ncopy["id"] = nid
 
-        ntype = str(n.get("type") or "process").lower()
-        ncopy["type"] = alias_map.get(ntype, ntype)
-        if ncopy["type"] == "annotation":
-            annot_nodes.append(ncopy)
+        raw_type = n.get("type")
+        if raw_type is None:
+            resolved_type = "process"
         else:
-            flow_nodes.append(ncopy)
+            if not isinstance(raw_type, str) or not raw_type.strip():
+                raise ValueError(f"invalid node 'type' on node {nid!r}: {raw_type!r} (expected non-empty string)")
+            ntype_clean = raw_type.strip().lower()
+            resolved_type = alias_map.get(ntype_clean, ntype_clean)
+            if resolved_type not in sym_catalog:
+                hint = _suggest_match(ntype_clean, all_known_type_names)
+                raise ValueError(
+                    f"unknown node 'type' {raw_type!r} on node {nid!r}{hint}; "
+                    f"valid ISO 5807 types: {', '.join(valid_type_names)}"
+                )
+        ncopy["type"] = resolved_type
 
-    # Assign collision-free edge IDs (and reject explicit duplicate IDs)
+        raw_slot = n.get("slot")
+        if raw_slot is not None and str(raw_slot).strip() != "":
+            slot_key = str(raw_slot).strip()
+            if slot_key not in palette:
+                hint = _suggest_match(slot_key, palette.keys())
+                raise ValueError(
+                    f"unknown node 'slot' {raw_slot!r} on node {nid!r}{hint}; "
+                    f"valid slots: {', '.join(sorted(palette.keys()))}"
+                )
+            ncopy["slot"] = slot_key
+
+        if "rank" in n and n["rank"] is not None:
+            rval = n["rank"]
+            if isinstance(rval, bool) or not isinstance(rval, int):
+                raise ValueError(f"invalid 'rank' on node {nid!r}: {rval!r} (expected integer)")
+
+        if "col" in n and n["col"] is not None:
+            cval = n["col"]
+            if isinstance(cval, bool) or not isinstance(cval, (int, float)) or not math.isfinite(cval):
+                raise ValueError(f"invalid 'col' on node {nid!r}: {cval!r} (expected finite number)")
+
+        if "duration" in n and n["duration"] is not None:
+            raw_dur = n["duration"]
+            if isinstance(raw_dur, bool) or not isinstance(raw_dur, (int, float)) or not math.isfinite(raw_dur) or raw_dur < 0:
+                raise ValueError(
+                    f"invalid 'duration' on node {nid!r}: {raw_dur!r} (expected finite non-negative number)"
+                )
+        elif kind == "cpm" and resolved_type != "annotation":
+            raise ValueError(f"CPM node {nid!r} is missing required numeric field 'duration'")
+
+        raw_lane = n.get("lane")
+        if resolved_type != "annotation":
+            if has_swimlanes and lanes_spec:
+                if raw_lane is None or not isinstance(raw_lane, str) or not raw_lane.strip():
+                    raise ValueError(
+                        f"swimlane node {nid!r} is missing required 'lane' field "
+                        f"(valid lanes: {', '.join(lane_ids)})"
+                    )
+                lid_clean = raw_lane.strip()
+                if lid_clean not in lane_id_set:
+                    hint = _suggest_match(lid_clean, lane_id_set)
+                    raise ValueError(
+                        f"unknown 'lane' {raw_lane!r} on node {nid!r}{hint}; "
+                        f"valid lanes: {', '.join(lane_ids)}"
+                    )
+                ncopy["lane"] = lid_clean
+            elif raw_lane is not None and str(raw_lane).strip() != "":
+                raise ValueError(
+                    f"node {nid!r} specifies 'lane'={raw_lane!r}, but spec defines no 'lanes'"
+                )
+            flow_nodes.append(ncopy)
+        else:
+            annot_nodes.append(ncopy)
+
+    if not flow_nodes:
+        raise ValueError("spec must contain at least one non-annotation flow node")
+
+    flow_ids = [n["id"] for n in flow_nodes]
+    flow_id_set = set(flow_ids)
+    annot_id_set = {an["id"] for an in annot_nodes}
+
+    # Validate annotation attach_to targets before layout
+    for an in annot_nodes:
+        raw_attach = an.get("attach_to")
+        if raw_attach is not None and str(raw_attach).strip() != "":
+            tgt_id = str(raw_attach).strip()
+            if tgt_id not in flow_id_set:
+                hint = _suggest_match(tgt_id, flow_id_set)
+                raise ValueError(
+                    f"annotation {an['id']!r} field 'attach_to' references unknown node id {raw_attach!r}{hint}"
+                )
+            an["attach_to"] = tgt_id
+
+    # Validate edges & endpoints strictly (never silently drop unknown IDs)
+    raw_edges_in = spec.get("edges")
+    if raw_edges_in is not None and not isinstance(raw_edges_in, list):
+        raise ValueError("spec field 'edges' must be a JSON list")
+
     raw_edges = []
     auto_edge_fallback = 1
-    for idx, e in enumerate(spec.get("edges") or []):
+    for idx, e in enumerate(raw_edges_in or []):
         if not isinstance(e, dict):
             raise ValueError("each entry in 'edges' must be a JSON object")
         if e.get("id") is not None and str(e.get("id")).strip() != "":
-            eid = str(e["id"])
+            eid = str(e["id"]).strip()
             if eid in used_ids:
                 raise ValueError(f"duplicate or reserved edge id {eid!r}")
         else:
@@ -508,18 +736,60 @@ def compile_spec_to_drawio(spec, preset_name=None):
         used_ids.add(eid)
         src = e.get("from") if "from" in e else e.get("source")
         tgt = e.get("to") if "to" in e else e.get("target")
+        src_s = str(src).strip() if src is not None else ""
+        tgt_s = str(tgt).strip() if tgt is not None else ""
+        if not src_s:
+            raise ValueError(f"edge {eid!r} is missing required 'from' node id")
+        if not tgt_s:
+            raise ValueError(f"edge {eid!r} is missing required 'to' node id")
+        if src_s not in flow_id_set:
+            if src_s in annot_id_set:
+                raise ValueError(
+                    f"edge {eid!r} field 'from' references annotation node {src_s!r}; "
+                    f"use 'attach_to' on the annotation instead of a flow edge"
+                )
+            hint = _suggest_match(src_s, flow_id_set)
+            raise ValueError(f"edge {eid!r} field 'from' references unknown node id {src_s!r}{hint}")
+        if tgt_s not in flow_id_set:
+            if tgt_s in annot_id_set:
+                raise ValueError(
+                    f"edge {eid!r} field 'to' references annotation node {tgt_s!r}; "
+                    f"use 'attach_to' on the annotation instead of a flow edge"
+                )
+            hint = _suggest_match(tgt_s, flow_id_set)
+            raise ValueError(f"edge {eid!r} field 'to' references unknown node id {tgt_s!r}{hint}")
+
+        role_s = str(e.get("role") or "").strip().lower()
+        if role_s not in VALID_EDGE_ROLES:
+            hint = _suggest_match(role_s, [r for r in VALID_EDGE_ROLES if r])
+            raise ValueError(
+                f"invalid 'role' {e.get('role')!r} on edge {eid!r}{hint}; "
+                f"valid roles: normal, error, critical"
+            )
+
         raw_edges.append({
             "id": eid,
-            "from": str(src) if src is not None else "",
-            "to": str(tgt) if tgt is not None else "",
+            "from": src_s,
+            "to": tgt_s,
             "label": str(e.get("label") or ""),
-            "style_role": str(e.get("role") or ""),
+            "style_role": role_s,
             "dashed": bool(e.get("dashed", False)),
         })
 
-    flow_ids = [n["id"] for n in flow_nodes]
-    explicit_ranks = {n["id"]: n["rank"] for n in flow_nodes if "rank" in n}
+    explicit_ranks = {n["id"]: n["rank"] for n in flow_nodes if n.get("rank") is not None}
     edge_tuples = [(e["from"], e["to"], e["id"]) for e in raw_edges]
+
+    # Strict CPM computation BEFORE layout: cycles abort immediately instead of dropping back-edges
+    cpm_metrics, crit_nodes, crit_edges, project_end = {}, set(), set(), 0.0
+    if kind == "cpm" or any(n.get("duration") is not None for n in flow_nodes):
+        cpm_metrics, crit_nodes, crit_edges, project_end = _compute_cpm(flow_nodes, raw_edges)
+        if kind == "cpm" and not subtitle:
+            crit_hex = _safe_style_val(theme_tok["edge_critical"])
+            subtitle = (
+                f"Tổng thời gian đường găng (Critical Path): {_fmt_num(project_end)} {unit} · "
+                f"Màu Gốm nung ({crit_hex}) biểu thị nút găng (TF = 0)"
+            )
+
     ranks, back_edge_ids = _compute_dag_ranks_and_backedges(flow_ids, edge_tuples, explicit_ranks)
 
     # Outgoing on_page_connector (in-degree=0, out-degree>=1) sits right before its target rank
@@ -535,17 +805,6 @@ def compile_spec_to_drawio(spec, preset_name=None):
             if in_deg_map[nid] == 0 and out_targets[nid]:
                 tgt_min_rank = min(ranks[t] for t in out_targets[nid])
                 ranks[nid] = max(0, tgt_min_rank - 1)
-
-    # Optional CPM computation
-    cpm_metrics, crit_nodes, crit_edges, project_end = {}, set(), set(), 0.0
-    if kind == "cpm" or any("duration" in n for n in flow_nodes):
-        cpm_metrics, crit_nodes, crit_edges, project_end = _compute_cpm(flow_nodes, raw_edges, back_edge_ids)
-        if kind == "cpm" and not subtitle:
-            crit_hex = _safe_style_val(theme_tok["edge_critical"])
-            subtitle = (
-                f"Tổng thời gian đường găng (Critical Path): {_fmt_num(project_end)} {unit} · "
-                f"Màu Gốm nung ({crit_hex}) biểu thị nút găng (TF = 0)"
-            )
 
     # Format labels & measure boxes
     boxes_wh = {}
@@ -602,13 +861,9 @@ def compile_spec_to_drawio(spec, preset_name=None):
     by_node = {n["id"]: n for n in flow_nodes}
 
     if has_swimlanes and lanes_spec:
-        lane_ids = [str(l["id"]) for l in lanes_spec]
         grid_cells = defaultdict(list)
         for n in flow_nodes:
-            lid = str(n.get("lane") or lane_ids[0])
-            if lid not in lane_ids:
-                lid = lane_ids[0]
-            grid_cells[(lid, ranks[n["id"]])].append(n["id"])
+            grid_cells[(n["lane"], ranks[n["id"]])].append(n["id"])
 
         sw_tok = theme_tok["swimlane"]
         pool_hdr_fill = _safe_style_val(sw_tok["pool_header_fill"])
@@ -1130,7 +1385,7 @@ def compile_spec_to_drawio(spec, preset_name=None):
     for n in flow_nodes + annot_nodes:
         nid = n["id"]
         sym_key = n["type"]
-        sinfo = sym_catalog.get(sym_key) or sym_catalog["process"]
+        sinfo = sym_catalog[sym_key]
         base_style = sinfo["drawio_style"]
         slot = n.get("slot") or sinfo.get("theme_slot", "neutral")
         if nid in crit_nodes:
@@ -1191,12 +1446,10 @@ def compile_spec_to_drawio(spec, preset_name=None):
     # Group outgoing & incoming flow edges for clean port allocation & routing
     out_by_src = defaultdict(list)
     in_by_tgt = defaultdict(list)
-    valid_edges = []
-    for e in raw_edges:
-        if e["from"] in abs_boxes and e["to"] in abs_boxes:
-            valid_edges.append(e)
-            out_by_src[e["from"]].append(e)
-            in_by_tgt[e["to"]].append(e)
+    valid_edges = list(raw_edges)
+    for e in valid_edges:
+        out_by_src[e["from"]].append(e)
+        in_by_tgt[e["to"]].append(e)
 
     # Precompute bounding box and node-free inter-rank gap channels
     min_box_x = min((b[0] for b in abs_boxes.values()), default=100)

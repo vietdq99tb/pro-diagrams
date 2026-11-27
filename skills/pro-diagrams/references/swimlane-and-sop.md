@@ -1,13 +1,14 @@
-# Sơ Đồ Quy Trình Liên Phòng Ban (Swimlane / BPMN), Runbook SOP & Dịch Song Ngữ
+# Swimlane ISO 5807 Cho SOP Liên Phòng Ban, Runbook & Dịch Song Ngữ
 
-Tài liệu này hướng dẫn thiết kế quy trình phối hợp nhiều vai trò / phòng ban không giới hạn số bước, xuất trang hướng dẫn vận hành bấm-chọn (`runbook.py`) và dịch giữ nguyên bố cục (`relabel.py`).
+Tài liệu này hướng dẫn thiết kế quy trình phối hợp nhiều vai trò / phòng ban bằng **Swimlane kết hợp hệ ký hiệu ISO 5807:1985** không giới hạn số bước, xuất trang hướng dẫn vận hành bấm-chọn (`runbook.py`) và dịch giữ nguyên bố cục (`relabel.py`).
 
 ---
 
-## 1. Quy Trình Liên Phòng Ban (`kind: "swimlane"`)
+## 1. Swimlane ISO 5807 Cho SOP Liên Phòng Ban (`kind: "swimlane"`)
 
-- Chọn hướng **`direction: "TB"`** (các làn đứng cạnh nhau thành cột, luồng chảy từ trên xuống dưới — chuẩn phổ biến nhất cho tài liệu SOP ISO Việt Nam trên khổ dọc) hoặc **`direction: "LR"`** (các làn xếp ngang từ trên xuống dưới, luồng chảy từ trái sang phải — chuẩn BPMN 2.0 màn hình rộng).
-- Khai báo `"pool_title"` cho tên quy trình tổng và mảng `"lanes"` cho từng phòng ban / hệ thống; mỗi nút chỉ cần gắn `"lane": "<lane_id>"`.
+- Pipeline `iso5807_builder.py` dựng làn Swimlane bằng **23 ký hiệu chuẩn ISO 5807:1985** (không phải một chế độ BPMN 2.0 riêng; nếu cần vẽ tay XML bằng stencil BPMN gốc của Draw.io, tra cứu khóa hình qua `scripts/shapesearch.py "bpmn"`).
+- Chọn hướng **`direction: "TB"`** (các làn đứng cạnh nhau thành cột, luồng chảy từ trên xuống dưới — phổ biến nhất cho tài liệu SOP ISO Việt Nam khổ dọc A4) hoặc **`direction: "LR"`** (các làn xếp ngang từ trên xuống dưới, luồng chảy từ trái sang phải — tối ưu cho màn hình rộng và slide ngang).
+- Khai báo `"pool_title"` cho tên quy trình tổng và mảng `"lanes"` cho từng phòng ban / hệ thống; mọi nút lưu đồ **bắt buộc** gắn `"lane": "<lane_id>"` hợp lệ (khớp đúng một `id` trong `lanes`).
 
 ```json
 {

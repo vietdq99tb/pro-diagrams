@@ -469,6 +469,301 @@ class TestTrackAISO5807SwimlaneCPM(unittest.TestCase):
             self.assertIn("ed2", targets)
             self.assertEqual(len(targets), len(set(targets)))
 
+    def test_malformed_spec_rejections_type_edge_lane_attach_slot_kind_direction(self):
+        base_nodes = [
+            {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+            {"id": "p", "type": "process", "label": "Xử lý"},
+            {"id": "e", "type": "terminator", "label": "Kết thúc"},
+        ]
+        base_edges = [{"from": "s", "to": "p"}, {"from": "p", "to": "e"}]
+
+        cases = [
+            (
+                "typo_node_type",
+                {
+                    "kind": "iso5807-flowchart",
+                    "nodes": [
+                        {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+                        {"id": "d", "type": "decison", "label": "Hợp lệ?"},
+                        {"id": "e", "type": "terminator", "label": "Kết thúc"},
+                    ],
+                    "edges": [{"from": "s", "to": "d"}, {"from": "d", "to": "e", "label": "Có"}],
+                },
+                ("decison", "decision"),
+            ),
+            (
+                "dangling_edge_to",
+                {"kind": "iso5807-flowchart", "nodes": base_nodes, "edges": base_edges + [{"from": "p", "to": "ghost_node"}]},
+                ("to", "ghost_node"),
+            ),
+            (
+                "dangling_edge_from",
+                {"kind": "iso5807-flowchart", "nodes": base_nodes, "edges": [{"from": "missing_src", "to": "p"}]},
+                ("from", "missing_src"),
+            ),
+            (
+                "edge_to_annotation",
+                {
+                    "kind": "iso5807-flowchart",
+                    "nodes": base_nodes + [{"id": "n_note", "type": "annotation", "attach_to": "p", "label": "Ghi chú"}],
+                    "edges": base_edges + [{"from": "p", "to": "n_note"}],
+                },
+                ("annotation", "attach_to"),
+            ),
+            (
+                "unknown_attach_to",
+                {
+                    "kind": "iso5807-flowchart",
+                    "nodes": base_nodes + [{"id": "n_note", "type": "annotation", "attach_to": "nope", "label": "Ghi chú"}],
+                    "edges": base_edges,
+                },
+                ("attach_to", "nope"),
+            ),
+            (
+                "unknown_swimlane_id",
+                {
+                    "kind": "swimlane",
+                    "lanes": [{"id": "rd", "title": "R&D"}, {"id": "fin", "title": "Tài chính"}],
+                    "nodes": [
+                        {"id": "s", "lane": "rd", "type": "terminator", "label": "Bắt đầu"},
+                        {"id": "p", "lane": "fin_typo", "type": "process", "label": "Duyệt"},
+                        {"id": "e", "lane": "fin", "type": "terminator", "label": "Kết thúc"},
+                    ],
+                    "edges": base_edges,
+                },
+                ("lane", "fin_typo"),
+            ),
+            (
+                "missing_swimlane_field",
+                {
+                    "kind": "swimlane",
+                    "lanes": [{"id": "rd", "title": "R&D"}],
+                    "nodes": [
+                        {"id": "s", "lane": "rd", "type": "terminator", "label": "Bắt đầu"},
+                        {"id": "p", "type": "process", "label": "Quên khai báo lane"},
+                        {"id": "e", "lane": "rd", "type": "terminator", "label": "Kết thúc"},
+                    ],
+                    "edges": base_edges,
+                },
+                ("lane", "p"),
+            ),
+            (
+                "empty_swimlane_lanes",
+                {"kind": "swimlane", "lanes": [], "nodes": base_nodes, "edges": base_edges},
+                ("lanes",),
+            ),
+            (
+                "unknown_slot",
+                {
+                    "kind": "iso5807-flowchart",
+                    "nodes": [
+                        {"id": "s", "type": "terminator", "label": "Bắt đầu"},
+                        {"id": "p", "type": "process", "slot": "neon_pink", "label": "Xử lý"},
+                        {"id": "e", "type": "terminator", "label": "Kết thúc"},
+                    ],
+                    "edges": base_edges,
+                },
+                ("slot", "neon_pink"),
+            ),
+            (
+                "invalid_kind",
+                {"kind": "bpmn-magic", "nodes": base_nodes, "edges": base_edges},
+                ("kind", "bpmn-magic"),
+            ),
+            (
+                "invalid_direction",
+                {"kind": "iso5807-flowchart", "direction": "BT", "nodes": base_nodes, "edges": base_edges},
+                ("direction", "BT"),
+            ),
+            (
+                "invalid_edge_role",
+                {
+                    "kind": "iso5807-flowchart",
+                    "nodes": base_nodes,
+                    "edges": [{"from": "s", "to": "p", "role": "eror"}, {"from": "p", "to": "e"}],
+                },
+                ("role", "eror"),
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, bad_spec, expected_tokens in cases:
+                sp = os.path.join(tmp, f"{name}.json")
+                out_p = os.path.join(tmp, f"{name}.drawio")
+                with open(sp, "w", encoding="utf-8") as fh:
+                    json.dump(bad_spec, fh, ensure_ascii=False)
+                r = _run_script("iso5807_builder.py", [sp, "-o", out_p], cwd=tmp)
+                combined = r.stdout + r.stderr
+                self.assertNotEqual(r.returncode, 0, f"{name} unexpectedly succeeded")
+                self.assertFalse(os.path.exists(out_p), f"{name} should not emit {out_p}")
+                self.assertNotIn("Traceback", combined, f"{name} leaked traceback:\n{combined}")
+                for tok in expected_tokens:
+                    self.assertIn(tok, combined, f"{name} error message missing {tok!r}: {combined}")
+
+    def test_iso5807_decision_single_entry_and_verified_clause_citations(self):
+        # ISO 5807:1985 §9.2.2.4 requires a single entrance into a Decision diamond
+        two_entry_spec = {
+            "kind": "iso5807-flowchart",
+            "direction": "TB",
+            "title": "Kiểm thử Quyết định 2 lối vào (vi phạm §9.2.2.4)",
+            "nodes": [
+                {"id": "start", "type": "terminator", "label": "Bắt đầu"},
+                {"id": "d0", "type": "decision", "label": "Kênh trực tuyến?"},
+                {"id": "p1", "type": "process", "label": "Xử lý kênh Online"},
+                {"id": "p2", "type": "process", "label": "Xử lý kênh Quầy"},
+                {"id": "d_bad", "type": "decision", "label": "Đủ điều kiện duyệt?"},
+                {"id": "ok", "type": "process", "label": "Phê duyệt"},
+                {"id": "rej", "type": "process", "label": "Từ chối"},
+                {"id": "end", "type": "terminator", "label": "Kết thúc"},
+            ],
+            "edges": [
+                {"from": "start", "to": "d0"},
+                {"from": "d0", "to": "p1", "label": "Có"},
+                {"from": "d0", "to": "p2", "label": "Không"},
+                {"from": "p1", "to": "d_bad"},
+                {"from": "p2", "to": "d_bad"},
+                {"from": "d_bad", "to": "ok", "label": "Có"},
+                {"from": "d_bad", "to": "rej", "label": "Không", "role": "error"},
+                {"from": "ok", "to": "end"},
+                {"from": "rej", "to": "end"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = os.path.join(tmp, "two_entry.json")
+            dp = os.path.join(tmp, "two_entry.drawio")
+            with open(sp, "w", encoding="utf-8") as fh:
+                json.dump(two_entry_spec, fh, ensure_ascii=False)
+            self.assertEqual(_run_script("iso5807_builder.py", [sp, "-o", dp], cwd=tmp).returncode, 0)
+
+            r_val = _run_script("validate_iso5807.py", [dp, "--strict", "--json"], cwd=tmp)
+            self.assertEqual(r_val.returncode, 1, f"Expected FAIL on 2-entry Decision: {r_val.stdout}")
+            rep = json.loads(r_val.stdout)
+            self.assertFalse(rep["iso_compliant"])
+            entry_diags = [d for d in rep["diagnostics"] if d["code"] == "E-ISO-DECISION-ENTRY"]
+            self.assertEqual(len(entry_diags), 1, rep["diagnostics"])
+            self.assertEqual(entry_diags[0]["subject"], "d_bad")
+            self.assertEqual(entry_diags[0]["clause"], "ISO 5807:1985 §9.2.2.4")
+            entry_fixes = [f for f in rep["supportedFixes"] if f["code"] == "E-ISO-DECISION-ENTRY"]
+            self.assertEqual(len(entry_fixes), 1)
+            self.assertEqual(entry_fixes[0]["clause"], "ISO 5807:1985 §9.2.2.4")
+
+        # Verify authoritative ISO 5807:1985 §9.x / §10.x sections in data/iso5807-shapes.json
+        with open(os.path.join(SKILL_DIR, "data", "iso5807-shapes.json"), encoding="utf-8") as fh:
+            symbols = json.load(fh)["symbols"]
+        expected_clauses = {
+            "data": "ISO 5807:1985 §9.1.1.1",
+            "stored_data": "ISO 5807:1985 §9.1.1.2",
+            "internal_storage": "ISO 5807:1985 §9.1.2.1",
+            "sequential_data": "ISO 5807:1985 §9.1.2.2",
+            "database": "ISO 5807:1985 §9.1.2.3",
+            "direct_data": "ISO 5807:1985 §9.1.2.3",
+            "document": "ISO 5807:1985 §9.1.2.4",
+            "manual_input": "ISO 5807:1985 §9.1.2.5",
+            "display": "ISO 5807:1985 §9.1.2.8",
+            "process": "ISO 5807:1985 §9.2.1",
+            "predefined_process": "ISO 5807:1985 §9.2.2.1",
+            "manual_operation": "ISO 5807:1985 §9.2.2.2",
+            "preparation": "ISO 5807:1985 §9.2.2.3",
+            "decision": "ISO 5807:1985 §9.2.2.4",
+            "parallel_mode": "ISO 5807:1985 §9.2.2.5",
+            "loop_limit_start": "ISO 5807:1985 §9.2.2.6",
+            "loop_limit_end": "ISO 5807:1985 §9.2.2.6",
+            "terminator": "ISO 5807:1985 §9.4.2",
+            "annotation": "ISO 5807:1985 §9.4.3",
+        }
+        for sym_key, clause in expected_clauses.items():
+            self.assertEqual(symbols[sym_key]["iso_section"], clause, f"{sym_key} clause mismatch")
+        self.assertIn("§9.4.1", symbols["on_page_connector"]["iso_section"])
+        self.assertEqual(symbols["delay"]["origin"], "extension")
+        self.assertEqual(symbols["off_page_connector"]["origin"], "extension")
+
+    def test_cpm_dependency_cycle_rejection_while_flowchart_loops_allowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # 1. Exact 2-node cycle A(3d) <-> B(5d) must abort and never report 8 days
+            cyc2 = {
+                "kind": "cpm",
+                "title": "CPM có vòng phụ thuộc A <-> B",
+                "nodes": [
+                    {"id": "A", "label": "Việc A", "duration": 3},
+                    {"id": "B", "label": "Việc B", "duration": 5},
+                ],
+                "edges": [{"from": "A", "to": "B"}, {"from": "B", "to": "A"}],
+            }
+            sp2 = os.path.join(tmp, "cpm_cyc2.json")
+            out2 = os.path.join(tmp, "cpm_cyc2.drawio")
+            with open(sp2, "w", encoding="utf-8") as fh:
+                json.dump(cyc2, fh, ensure_ascii=False)
+            r2 = _run_script("iso5807_builder.py", [sp2, "-o", out2], cwd=tmp)
+            self.assertNotEqual(r2.returncode, 0, "Cyclic CPM A<->B must fail")
+            self.assertFalse(os.path.exists(out2))
+            self.assertNotIn("Traceback", r2.stderr + r2.stdout)
+            self.assertIn("cycle", (r2.stderr + r2.stdout).lower())
+            self.assertIn("A", r2.stderr)
+            self.assertIn("B", r2.stderr)
+
+            # 2. 3-node cycle A -> B -> C -> A with downstream D: must isolate A, B, C (not D)
+            cyc3 = {
+                "kind": "cpm",
+                "nodes": [
+                    {"id": "A", "label": "A", "duration": 2},
+                    {"id": "B", "label": "B", "duration": 3},
+                    {"id": "C", "label": "C", "duration": 4},
+                    {"id": "D", "label": "D", "duration": 1},
+                ],
+                "edges": [
+                    {"from": "A", "to": "B"},
+                    {"from": "B", "to": "C"},
+                    {"from": "C", "to": "A"},
+                    {"from": "C", "to": "D"},
+                ],
+            }
+            sp3 = os.path.join(tmp, "cpm_cyc3.json")
+            out3 = os.path.join(tmp, "cpm_cyc3.drawio")
+            with open(sp3, "w", encoding="utf-8") as fh:
+                json.dump(cyc3, fh, ensure_ascii=False)
+            r3 = _run_script("iso5807_builder.py", [sp3, "-o", out3], cwd=tmp)
+            self.assertNotEqual(r3.returncode, 0)
+            self.assertFalse(os.path.exists(out3))
+            self.assertIn("tasks involved: A, B, C", r3.stderr)
+            self.assertNotIn("D)", r3.stderr)
+
+            # 3. Self-loop A -> A on CPM rejected
+            cyc1 = {
+                "kind": "cpm",
+                "nodes": [{"id": "A", "label": "A", "duration": 2}],
+                "edges": [{"from": "A", "to": "A"}],
+            }
+            with self.assertRaises(ValueError) as ctx:
+                iso5807_builder.compile_spec_to_drawio(cyc1)
+            self.assertIn("A -> A", str(ctx.exception))
+
+            # 4. Negative / missing CPM duration rejected
+            bad_dur = {
+                "kind": "cpm",
+                "nodes": [{"id": "A", "label": "A", "duration": -1}],
+                "edges": [],
+            }
+            with self.assertRaises(ValueError):
+                iso5807_builder.compile_spec_to_drawio(bad_dur)
+
+            missing_dur = {
+                "kind": "cpm",
+                "nodes": [{"id": "A", "label": "A"}],
+                "edges": [],
+            }
+            with self.assertRaises(ValueError):
+                iso5807_builder.compile_spec_to_drawio(missing_dur)
+
+            # 5. Flowchart retry loop remains fully supported & passes strict validation
+            retry_sp = os.path.join(tmp, "retry.json")
+            retry_out = os.path.join(tmp, "retry.drawio")
+            with open(retry_sp, "w", encoding="utf-8") as fh:
+                json.dump(_eval1_payment_retry_spec(with_hints=True), fh, ensure_ascii=False)
+            self.assertEqual(_run_script("iso5807_builder.py", [retry_sp, "-o", retry_out], cwd=tmp).returncode, 0)
+            r_retry_val = _run_script("validate_iso5807.py", [retry_out, "--strict", "--score", "--json"], cwd=tmp)
+            self.assertEqual(r_retry_val.returncode, 0, r_retry_val.stdout)
+            self.assertEqual(json.loads(r_retry_val.stdout)["readability_score"], 0)
+
 
 class TestTrackARepurposeViewerRunbookAndRender(unittest.TestCase):
     """Covers all remaining Track A scripts: relabel, restyle, runbook, drawiohtml,
@@ -1346,6 +1641,27 @@ class TestDesignSystemHygieneAndErrorHandling(unittest.TestCase):
             "ask_question",
         ):
             self.assertIn(needle, disc_txt, f"Missing discovery section/keyword: {needle}")
+
+    def test_apache2_license_bundle_and_scope_naming_accuracy(self):
+        """Verify full Apache-2.0 license text is bundled for shape-index.json.gz and BPMN is not oversold."""
+        apache_path = os.path.join(SKILL_DIR, "data", "APACHE-2.0.txt")
+        self.assertTrue(os.path.isfile(apache_path), "Missing bundled data/APACHE-2.0.txt per Apache-2.0 §4(a)")
+        with open(apache_path, encoding="utf-8") as fh:
+            apache_txt = fh.read()
+        self.assertIn("Apache License", apache_txt)
+        self.assertIn("Version 2.0, January 2004", apache_txt)
+        self.assertIn("TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION", apache_txt)
+        self.assertGreaterEqual(len(apache_txt.splitlines()), 190)
+
+        for ref_file in (os.path.join(SKILL_DIR, "LICENSE"), os.path.join(SKILL_DIR, "data", "SHAPE-INDEX-NOTICE.md")):
+            with open(ref_file, encoding="utf-8") as fh:
+                self.assertIn("APACHE-2.0.txt", fh.read(), f"{ref_file} must reference APACHE-2.0.txt")
+
+        for doc_file in (os.path.join(SKILL_DIR, "SKILL.md"), os.path.join(SKILL_DIR, "INSTALL_GUIDE.md")):
+            with open(doc_file, encoding="utf-8") as fh:
+                doc_txt = fh.read()
+            self.assertNotIn("BPMN workflows", doc_txt)
+            self.assertNotIn("Swimlane / BPMN", doc_txt)
 
 
 if __name__ == "__main__":

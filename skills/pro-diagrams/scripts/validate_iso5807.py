@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """ISO 5807:1985 semantic, geometric, and WCAG AA linter for .drawio files.
 
-Extends `validate.py` with 11 deterministic ISO 5807 & WCAG AA rules and structured
-`diagnostics[]` + `supportedFixes[]` output (capped to <=2 self-fix rounds).
+Extends `validate.py` with 12 deterministic ISO 5807:1985, Swimlane & WCAG AA
+rules — each mapped to its exact ISO clause or layout/WCAG standard — and
+structured `diagnostics[]` + `supportedFixes[]` output (capped to <=2 self-fix rounds).
 
 Usage:
   python3 validate_iso5807.py diagram.drawio [--strict] [--json] [--score]
@@ -20,6 +21,30 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import validate as base_val
+
+RULE_CLAUSES = {
+    "W-ISO-STYLE-STRICT": "ISO 5807:1985 §9.4.2 / §10.1.2",
+    "E-ISO-CONNECTOR-PAIR": "ISO 5807:1985 §9.4.1 / §10.2.2",
+    "E-ISO-START": "ISO 5807:1985 §9.4.2",
+    "E-ISO-END": "ISO 5807:1985 §9.4.2",
+    "E-ISO-DECISION-ENTRY": "ISO 5807:1985 §9.2.2.4",
+    "W-DECISION-EXIT": "ISO 5807:1985 §9.2.2.4 / §10.3.1",
+    "W-ISO-DECISION-EXIT": "ISO 5807:1985 §9.2.2.4 / §10.3.1",
+    "E-ISO-DECISION-LABEL": "ISO 5807:1985 §9.2.2.4 / §10.3.1",
+    "W-ISO-LOOP-PAIR": "ISO 5807:1985 §9.2.2.6",
+    "W-ISO-ORPHAN": "ISO 5807:1985 §9.3.1 / §10.2.1",
+    "W-ISO-FLOW-DIR": "ISO 5807:1985 §10.2.1.1 / §10.2.1.2",
+    "W-ISO-SWIMLANE-CROSS": "Pro. Diagrams Swimlane Layout",
+    "W-ISO-WCAG-CONTRAST": "WCAG 2.1 AA (SC 1.4.3)",
+}
+
+
+def _iso_diag(code, severity, subject, message, fix):
+    d = base_val.diag(code, severity, subject, message, fix)
+    clause = RULE_CLAUSES.get(code)
+    if clause:
+        d["clause"] = clause
+    return d
 
 
 def _clean_text(raw):
@@ -108,6 +133,10 @@ def _classify_iso_symbol(style):
 def check_iso5807_page(page):
     """Run base structural checks + ISO 5807:1985 checks on one <diagram> page."""
     errors, warns = base_val.check_page(page)
+    for d in errors + warns:
+        if d["code"] in RULE_CLAUSES and "clause" not in d:
+            d["clause"] = RULE_CLAUSES[d["code"]]
+
     model, cells = _unwrap_cells(page)
     if not cells:
         return errors, warns
@@ -162,25 +191,25 @@ def check_iso5807_page(page):
     if not flow_nodes:
         return errors, warns
 
-    # 1. W-ISO-STYLE-STRICT: ellipse used instead of stadium terminator
+    # 1. W-ISO-STYLE-STRICT (ISO 5807:1985 §9.4.2 / §10.1.2): ellipse used instead of stadium terminator
     for nid, (c, kind, st, lbl) in flow_nodes.items():
         if kind == "ellipse_nonstandard":
-            warns.append(base_val.diag(
+            warns.append(_iso_diag(
                 "W-ISO-STYLE-STRICT", "warning", nid,
-                f"node {nid!r} ({lbl!r}) uses 'ellipse' instead of ISO 5807 stadium terminator",
+                f"node {nid!r} ({lbl!r}) uses 'ellipse' instead of ISO 5807:1985 §9.4.2 stadium terminator",
                 "replace 'ellipse;' with 'shape=mxgraph.flowchart.terminator;whiteSpace=wrap;html=1;'"
             ))
 
-    # 2. E-ISO-CONNECTOR-PAIR: on-page connectors must have >=1 incoming-only and ==1 outgoing-only per code
+    # 2. E-ISO-CONNECTOR-PAIR (ISO 5807:1985 §9.4.1 / §10.2.2): paired entry/exit connectors per code
     conn_by_code = {}
     for nid, (c, kind, st, lbl) in flow_nodes.items():
         if kind == "on_page_connector":
             code = lbl.strip().upper() or "?"
             conn_by_code.setdefault(code, []).append(nid)
         elif kind == "off_page_connector" and not lbl.strip():
-            errors.append(base_val.diag(
+            errors.append(_iso_diag(
                 "E-ISO-CONNECTOR-PAIR", "error", nid,
-                f"off-page connector {nid!r} has an empty page/reference label",
+                f"off-page connector {nid!r} has an empty page/reference label (ISO 5807:1985 §10.2.2)",
                 "set a non-empty cross-page reference label such as 'P.2 / A' on the offPageConnector"
             ))
 
@@ -188,10 +217,11 @@ def check_iso5807_page(page):
         sources_in = [n for n in nids if len(in_edges[n]) >= 1 and len(out_edges[n]) == 0]
         targets_out = [n for n in nids if len(out_edges[n]) >= 1 and len(in_edges[n]) == 0]
         if code == "?" or len(sources_in) < 1 or len(targets_out) != 1:
-            errors.append(base_val.diag(
+            errors.append(_iso_diag(
                 "E-ISO-CONNECTOR-PAIR", "error", ",".join(nids),
                 f"on-page connector code {code!r} (nodes {nids}) must have >=1 entry connector (in>0, out=0) "
-                f"and exactly 1 target connector (in=0, out>0); got {len(sources_in)} entry and {len(targets_out)} target",
+                f"and exactly 1 target connector (in=0, out>0) per ISO 5807:1985 §9.4.1 / §10.2.2; "
+                f"got {len(sources_in)} entry and {len(targets_out)} target",
                 "pair every incoming on-page_reference(code) with a single outgoing on-page_reference(code)"
             ))
 
@@ -207,71 +237,81 @@ def check_iso5807_page(page):
                 virtual_adj[sin].append(tout)
                 virtual_rev[tout].append(sin)
 
-    # 3. E-ISO-START: >=1 start terminator (or incoming off-page connector)
+    # 3. E-ISO-START (ISO 5807:1985 §9.4.2): >=1 start terminator (or incoming off-page connector)
     starts = [
         nid for nid, (_, kind, _, _) in flow_nodes.items()
         if kind in ("terminator", "ellipse_nonstandard", "off_page_connector")
         and len(in_edges[nid]) == 0 and len(out_edges[nid]) >= 1
     ]
     if not starts:
-        errors.append(base_val.diag(
+        errors.append(_iso_diag(
             "E-ISO-START", "error", page.get("name") or "page",
-            "flowchart has no ISO 5807 Start Terminator (in-degree=0, out-degree>=1)",
+            "flowchart has no ISO 5807:1985 §9.4.2 Start Terminator (in-degree=0, out-degree>=1)",
             "add a 'shape=mxgraph.flowchart.terminator;whiteSpace=wrap;html=1;' Start node with outgoing flowline"
         ))
 
-    # 4. E-ISO-END: >=1 end terminator (or outgoing off-page connector) and no dead-end non-terminator nodes
+    # 4. E-ISO-END (ISO 5807:1985 §9.4.2): >=1 end terminator and no dead-end non-terminator nodes
     ends = [
         nid for nid, (_, kind, _, _) in flow_nodes.items()
         if kind in ("terminator", "ellipse_nonstandard", "off_page_connector")
         and len(in_edges[nid]) >= 1 and len(out_edges[nid]) == 0
     ]
     if not ends:
-        errors.append(base_val.diag(
+        errors.append(_iso_diag(
             "E-ISO-END", "error", page.get("name") or "page",
-            "flowchart has no ISO 5807 End Terminator (in-degree>=1, out-degree=0)",
+            "flowchart has no ISO 5807:1985 §9.4.2 End Terminator (in-degree>=1, out-degree=0)",
             "add a 'shape=mxgraph.flowchart.terminator;whiteSpace=wrap;html=1;' End node and connect terminal branches"
         ))
 
     for nid, (_, kind, _, lbl) in flow_nodes.items():
         if kind not in ("terminator", "ellipse_nonstandard", "off_page_connector", "on_page_connector"):
             if len(in_edges[nid]) >= 1 and len(out_edges[nid]) == 0:
-                errors.append(base_val.diag(
+                errors.append(_iso_diag(
                     "E-ISO-END", "error", nid,
-                    f"non-terminator node {nid!r} ({lbl!r}) is a dead end (out-degree=0)",
+                    f"non-terminator node {nid!r} ({lbl!r}) is a dead end (out-degree=0; ISO 5807:1985 §9.4.2)",
                     "connect this step to a downstream step, End terminator, or paired Connector"
                 ))
 
-    # 5. W-ISO-DECISION-EXIT & W-ISO-DECISION-LABEL
-    # (Deduplicate W-DECISION-EXIT from base_val if already raised, and check labels)
+    # 5. Decision rules (ISO 5807:1985 §9.2.2.4 & §10.3.1):
+    #    - E-ISO-DECISION-ENTRY: single entrance only (in-degree <= 1)
+    #    - W-ISO-DECISION-EXIT:  >3 exits harms clarity (<2 exits flagged by base W-DECISION-EXIT)
+    #    - E-ISO-DECISION-LABEL: 100% of outgoing branches must carry explicit condition labels
     for nid, (_, kind, _, lbl) in flow_nodes.items():
         if kind == "decision":
+            ins = in_edges[nid]
+            if len(ins) > 1:
+                errors.append(_iso_diag(
+                    "E-ISO-DECISION-ENTRY", "error", nid,
+                    f"decision {nid!r} ({lbl!r}) has {len(ins)} separate incoming flowlines "
+                    f"(ISO 5807:1985 §9.2.2.4 requires a single entrance)",
+                    "merge incoming flowlines on an upstream process step or on-page connector before entering the decision diamond"
+                ))
             outs = out_edges[nid]
             if len(outs) > 3:
-                warns.append(base_val.diag(
+                warns.append(_iso_diag(
                     "W-ISO-DECISION-EXIT", "warning", nid,
-                    f"decision {nid!r} ({lbl!r}) has {len(outs)} outgoing branches (>3 hurts ISO 5807 clarity)",
+                    f"decision {nid!r} ({lbl!r}) has {len(outs)} outgoing branches (>3 hurts ISO 5807:1985 §9.2.2.4 / §10.3.1 clarity)",
                     "split cascaded conditions into sequential binary/ternary decision diamonds"
                 ))
             for eid, tgt, elbl, _ in outs:
                 if not elbl.strip():
-                    errors.append(base_val.diag(
+                    errors.append(_iso_diag(
                         "E-ISO-DECISION-LABEL", "error", eid,
-                        f"decision branch edge {eid!r} ({nid!r} -> {tgt!r}) has no condition label",
+                        f"decision branch edge {eid!r} ({nid!r} -> {tgt!r}) has no condition label (ISO 5807:1985 §9.2.2.4 / §10.3.1)",
                         "set a concise branch condition label on the edge (e.g., 'Có' / 'Không', 'Đạt' / 'Lỗi')"
                     ))
 
-    # 6. W-ISO-LOOP-PAIR: loop_limit_start and loop_limit_end count parity
+    # 6. W-ISO-LOOP-PAIR (ISO 5807:1985 §9.2.2.6): loop_limit_start and loop_limit_end count parity
     loop_starts = [nid for nid, (_, k, _, _) in flow_nodes.items() if k == "loop_limit_start"]
     loop_ends = [nid for nid, (_, k, _, _) in flow_nodes.items() if k == "loop_limit_end"]
     if len(loop_starts) != len(loop_ends):
-        warns.append(base_val.diag(
+        warns.append(_iso_diag(
             "W-ISO-LOOP-PAIR", "warning", ",".join(loop_starts + loop_ends),
-            f"unbalanced ISO 5807 Loop Limit symbols: {len(loop_starts)} start vs {len(loop_ends)} end",
+            f"unbalanced ISO 5807:1985 §9.2.2.6 Loop Limit symbols: {len(loop_starts)} start vs {len(loop_ends)} end",
             "pair every 'mxgraph.flowchart.loop_limit' with a closing 'mxgraph.flowchart.loop_limit;flipV=1;'"
         ))
 
-    # 7. W-ISO-ORPHAN: isolated or unreachable from any Start
+    # 7. W-ISO-ORPHAN (ISO 5807:1985 §9.3.1 / §10.2.1): isolated or unreachable from any Start
     reachable = set()
     stack = list(starts)
     while stack:
@@ -285,19 +325,19 @@ def check_iso5807_page(page):
 
     for nid, (_, kind, _, lbl) in flow_nodes.items():
         if len(virtual_adj[nid]) == 0 and len(virtual_rev[nid]) == 0:
-            warns.append(base_val.diag(
+            warns.append(_iso_diag(
                 "W-ISO-ORPHAN", "warning", nid,
-                f"node {nid!r} ({lbl!r}) is completely isolated (no incoming or outgoing flowlines)",
+                f"node {nid!r} ({lbl!r}) is completely isolated (no incoming or outgoing flowlines; ISO 5807:1985 §9.3.1)",
                 "connect the node into the process flow or convert it to 'mxgraph.flowchart.annotation_2'"
             ))
         elif starts and nid not in reachable:
-            warns.append(base_val.diag(
+            warns.append(_iso_diag(
                 "W-ISO-ORPHAN", "warning", nid,
-                f"node {nid!r} ({lbl!r}) is unreachable from any Start terminator",
+                f"node {nid!r} ({lbl!r}) is unreachable from any Start terminator (ISO 5807:1985 §10.2.1)",
                 "add a valid incoming flowline or check connector code pairing"
             ))
 
-    # 8. W-ISO-FLOW-DIR: detect dominant flow direction & unlabeled backward edges without outer corridor waypoints
+    # 8. W-ISO-FLOW-DIR (ISO 5807:1985 §10.2.1.1 / §10.2.1.2): backward return edges without outer corridor waypoints
     dy_vals, dx_vals = [], []
     for eid, src, tgt, elbl, edge_cell, _ in flow_edges:
         sr = base_val.abs_rect(by_id[src], by_id)
@@ -314,19 +354,19 @@ def check_iso5807_page(page):
         # Only flag if going strictly against dominant direction on same axis without waypoints
         wps = base_val.edge_waypoints(edge_cell)
         if primary_tb and (tr[1] + tr[3] / 2) < (sr[1] - 10) and not wps:
-            warns.append(base_val.diag(
+            warns.append(_iso_diag(
                 "W-ISO-FLOW-DIR", "warning", eid,
-                f"upward return edge {eid!r} ({src!r} -> {tgt!r}) has no outer-corridor waypoints",
+                f"upward return edge {eid!r} ({src!r} -> {tgt!r}) has no outer-corridor waypoints (ISO 5807:1985 §10.2.1.1)",
                 "route backward/retry loop edges around an outer corridor (~80px) using <Array as='points'>"
             ))
         elif (not primary_tb) and (tr[0] + tr[2] / 2) < (sr[0] - 10) and not wps:
-            warns.append(base_val.diag(
+            warns.append(_iso_diag(
                 "W-ISO-FLOW-DIR", "warning", eid,
-                f"leftward return edge {eid!r} ({src!r} -> {tgt!r}) has no outer-corridor waypoints",
+                f"leftward return edge {eid!r} ({src!r} -> {tgt!r}) has no outer-corridor waypoints (ISO 5807:1985 §10.2.1.1)",
                 "route backward/retry loop edges around an outer corridor (~80px) using <Array as='points'>"
             ))
 
-    # 9. W-ISO-SWIMLANE-CROSS: check waypointed edges don't run collinearly along a swimlane border
+    # 9. W-ISO-SWIMLANE-CROSS (Pro. Diagrams Swimlane Layout): avoid edges running collinearly on swimlane borders
     lane_borders_x, lane_borders_y = [], []
     for lid, lc in swimlanes.items():
         lr = base_val.abs_rect(lc, by_id)
@@ -341,7 +381,7 @@ def check_iso5807_page(page):
         for (x1, y1), (x2, y2) in zip(route, route[1:]):
             if abs(x1 - x2) < 1.0 and abs(y2 - y1) > 40:
                 if any(abs(x1 - bx) < 4.0 for bx in lane_borders_x):
-                    warns.append(base_val.diag(
+                    warns.append(_iso_diag(
                         "W-ISO-SWIMLANE-CROSS", "warning", eid,
                         f"edge {eid!r} vertical segment runs directly on top of a swimlane border (x={x1:.0f})",
                         "shift the waypoint at least 16px away from swimlane border lines"
@@ -349,14 +389,14 @@ def check_iso5807_page(page):
                     break
             if abs(y1 - y2) < 1.0 and abs(x2 - x1) > 40:
                 if any(abs(y1 - by) < 4.0 for by in lane_borders_y):
-                    warns.append(base_val.diag(
+                    warns.append(_iso_diag(
                         "W-ISO-SWIMLANE-CROSS", "warning", eid,
                         f"edge {eid!r} horizontal segment runs directly on top of a swimlane border (y={y1:.0f})",
                         "shift the waypoint at least 16px away from swimlane border lines"
                     ))
                     break
 
-    # 10. W-ISO-WCAG-CONTRAST: check fillColor vs fontColor contrast >= 4.5:1
+    # 10. W-ISO-WCAG-CONTRAST (WCAG 2.1 AA SC 1.4.3): fillColor vs fontColor contrast >= 4.5:1
     default_fg = "#1C2327"
     for nid, (c, kind, st, lbl) in flow_nodes.items():
         if not lbl:
@@ -366,9 +406,9 @@ def check_iso5807_page(page):
         if fill and fill.lower() != "none":
             ratio = _contrast_ratio(fill, fg)
             if ratio is not None and ratio < 4.5:
-                warns.append(base_val.diag(
+                warns.append(_iso_diag(
                     "W-ISO-WCAG-CONTRAST", "warning", nid,
-                    f"node {nid!r} text contrast ({fg} on {fill}) is {ratio:.2f}:1 (< 4.5:1 WCAG AA)",
+                    f"node {nid!r} text contrast ({fg} on {fill}) is {ratio:.2f}:1 (< 4.5:1 WCAG 2.1 AA SC 1.4.3)",
                     "use a high-contrast pair from 'styles/built-in/tech-warm-light.json' or darken fontColor"
                 ))
 
@@ -391,12 +431,15 @@ def build_structured_report(path, strict=False):
         key = (d["code"], d["subject"])
         if key not in seen_targets:
             seen_targets.add(key)
-            supported_fixes.append({
+            fix_item = {
                 "code": d["code"],
                 "severity": d["severity"],
                 "target": d["subject"],
                 "action": d["fix"],
-            })
+            }
+            if d.get("clause"):
+                fix_item["clause"] = d["clause"]
+            supported_fixes.append(fix_item)
 
     lines = [d["message"] for d in findings]
     through = sum(1 for m in lines if "routes through" in m)

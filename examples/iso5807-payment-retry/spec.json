@@ -1,0 +1,40 @@
+{
+  "kind": "iso5807-flowchart",
+  "direction": "TB",
+  "preset": "tech-warm-light",
+  "title": "Lưu đồ Xử lý Thanh toán & Xuất Hóa đơn Điện tử",
+  "subtitle": "Chuẩn ISO 5807:1985 · Cơ chế thử lại (k < 3, SLA <= 3 giây)",
+  "nodes": [
+    { "id": "start", "type": "terminator", "label": "Bắt đầu", "rank": 0, "col": 0 },
+    { "id": "input_order", "type": "data", "label": "Nhập thông tin đơn hàng &\nphương thức thanh toán", "rank": 1, "col": 0 },
+    { "id": "init_k", "type": "preparation", "label": "Khởi tạo biến đếm\nthử lại k = 0", "rank": 2, "col": 0 },
+    { "id": "call_gateway", "type": "predefined_process", "label": "Gọi dịch vụ cổng\nthanh toán định sẵn", "rank": 3, "col": 0 },
+    { "id": "dec_tx_ok", "type": "decision", "label": "Giao dịch\nthành công?", "rank": 4, "col": 0 },
+    { "id": "save_db", "type": "database", "label": "Ghi giao dịch vào\ncơ sở dữ liệu", "rank": 5, "col": 0 },
+    { "id": "issue_invoice", "type": "document", "label": "Xuất hóa đơn điện tử\n(chứng từ)", "rank": 6, "col": 0 },
+    { "id": "inc_k", "type": "process", "label": "Tăng biến đếm\nk = k + 1", "rank": 5, "col": 1.8 },
+    { "id": "dec_k_lt_3", "type": "decision", "label": "Kiểm tra\nk < 3?", "rank": 6, "col": 1.8 },
+    { "id": "wait_5s", "type": "delay", "label": "Chờ 5 giây", "rank": 7, "col": 1.8 },
+    { "id": "show_error", "type": "display", "label": "Hiển thị thông báo lỗi\nlên màn hình", "rank": 7, "col": 0.85 },
+    { "id": "conn_a_in", "type": "on_page_connector", "label": "A", "rank": 8, "col": 0.85 },
+    { "id": "conn_a_out", "type": "on_page_connector", "label": "A", "rank": 8, "col": -0.55 },
+    { "id": "end", "type": "terminator", "label": "Kết thúc", "rank": 9, "col": 0 },
+    { "id": "note_sla", "type": "annotation", "attach_to": "call_gateway", "label": "SLA cổng thanh toán <= 3 giây" }
+  ],
+  "edges": [
+    { "id": "e_start_input", "from": "start", "to": "input_order" },
+    { "id": "e_input_init", "from": "input_order", "to": "init_k" },
+    { "id": "e_init_call", "from": "init_k", "to": "call_gateway" },
+    { "id": "e_call_dec", "from": "call_gateway", "to": "dec_tx_ok" },
+    { "id": "e_tx_yes", "from": "dec_tx_ok", "to": "save_db", "label": "Có" },
+    { "id": "e_tx_no", "from": "dec_tx_ok", "to": "inc_k", "label": "Không", "role": "error" },
+    { "id": "e_db_inv", "from": "save_db", "to": "issue_invoice" },
+    { "id": "e_inv_end", "from": "issue_invoice", "to": "end" },
+    { "id": "e_inc_check", "from": "inc_k", "to": "dec_k_lt_3" },
+    { "id": "e_retry_yes", "from": "dec_k_lt_3", "to": "wait_5s", "label": "Có" },
+    { "id": "e_wait_loop", "from": "wait_5s", "to": "call_gateway", "label": "Thử lại" },
+    { "id": "e_retry_no", "from": "dec_k_lt_3", "to": "show_error", "label": "Không", "role": "error" },
+    { "id": "e_err_conna", "from": "show_error", "to": "conn_a_in", "role": "error" },
+    { "id": "e_conna_end", "from": "conn_a_out", "to": "end" }
+  ]
+}

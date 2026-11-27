@@ -1,0 +1,164 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>payment_retry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+<style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 'Open Sans','Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+background:#F8F6F2;color:#1C2327;height:100vh;display:flex;flex-direction:column}
+header{padding:10px 16px 8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+border-bottom:1px solid #C9D2D8;background:#F8F6F2}
+h1{margin:0;font-size:15px;font-weight:700;color:#2B373E}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+button,input{font:inherit;color:inherit}
+nav button,.ctl button{padding:5px 11px;border:1px solid #4A5860;border-radius:8px;
+background:#FFFFFF;color:#1C2327;cursor:pointer;font-weight:600}
+nav button:hover,.ctl button:hover{border-color:#2B373E;background:#EEF2F5}
+nav button.on{background:#2B373E;border-color:#2B373E;color:#FFFFFF;font-weight:700}
+button:focus-visible,.ctl input:focus{outline:2px solid #AD4333;outline-offset:1px}
+.ctl{display:flex;gap:8px;align-items:center;margin-left:auto}
+.ctl input{padding:5px 10px;border:1px solid #4A5860;border-radius:8px;background:#FFFFFF;
+color:#1C2327;width:190px}
+#hits{font-size:12px;font-weight:600;color:#526068;min-width:64px}
+#stage{flex:1;overflow:hidden;position:relative;background:#FFFFFF;
+cursor:grab;touch-action:none}
+#stage.drag{cursor:grabbing}
+.page{position:absolute;transform-origin:0 0;display:none}
+.page.on{display:block}
+.page svg{display:block}
+.hit{filter:drop-shadow(0 0 3px #8C5D2B) drop-shadow(0 0 6px #8C5D2B88)}
+.hit.cursel{filter:drop-shadow(0 0 4px #AD4333) drop-shadow(0 0 9px #AD4333bb)}
+@media(prefers-color-scheme:dark){
+  body,header{background:#161C20;color:#F4F2EE;border-color:#384650}
+  h1{color:#FFFFFF}
+  nav button,.ctl button,.ctl input{background:#212A30;border-color:#8D9CA6;color:#F4F2EE}
+  nav button:hover,.ctl button:hover{border-color:#B8C7D1;background:#26333B}
+  nav button.on{background:#E07A68;border-color:#E07A68;color:#161C20}
+  button:focus-visible,.ctl input:focus{outline-color:#E07A68}
+  #hits{color:#A8B4BC}
+  #stage{background:#161C20}
+  .hit{filter:drop-shadow(0 0 3px #D4AE7A) drop-shadow(0 0 6px #D4AE7A88)}
+  .hit.cursel{filter:drop-shadow(0 0 4px #E07A68) drop-shadow(0 0 9px #E07A68cc)}
+}
+</style></head><body>
+<header><h1>payment_retry</h1><nav id="tabs"></nav>
+<div class="ctl">
+ <input id="q" type="search" placeholder="Tìm nút… Enter = tiếp">
+ <span id="hits"></span>
+ <button id="zout" title="Thu nhỏ">−</button><button id="zin" title="Phóng to">+</button>
+ <button id="fit" title="Vừa khung">Fit</button>
+</div></header>
+<main id="stage">
+<div class="page" data-pgid="page-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 1600" width="1120" height="1600" role="img" aria-label="ISO-5807-Diagram">
+<defs><style>@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap'); text { font-family: "Open Sans", "Segoe UI", Roboto, Arial, sans-serif; }</style></defs>
+<rect x="0" y="0" width="1120" height="1600" fill="#F8F6F2"/>
+<g data-cell-id="annot_edge_1"><path d="M 340,600 L 400,600" fill="none" stroke="#526068" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="5,4"/></g>
+<g data-cell-id="e_start_input"><path d="M 485,190 L 480.558,225.535 Q 480,230 484.5,230 L 485.5,230 Q 490,230 490,234.5 L 490,270" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="490,270 486.1,262.5 493.9,262.5" fill="#2B373E"/></g>
+<g data-cell-id="e_input_init"><path d="M 490,350 L 490,430" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="490,430 486.1,422.5 493.9,422.5" fill="#2B373E"/></g>
+<g data-cell-id="e_init_call"><path d="M 490,490 L 490,525.5 Q 490,530 485.5,530 L 484.5,530 Q 480,530 480.558,534.465 L 485,570" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="485,570 480.2,563.042 487.94,562.074" fill="#2B373E"/></g>
+<g data-cell-id="e_call_dec"><path d="M 485,630 L 480.558,665.535 Q 480,670 484.5,670 L 485.5,670 Q 490,670 490,674.5 L 490,710" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="490,710 486.1,702.5 493.9,702.5" fill="#2B373E"/></g>
+<g data-cell-id="e_tx_yes"><path d="M 490,810 L 490,845.5 Q 490,850 494.5,850 L 495.5,850 Q 500,850 499.442,854.465 L 495,890" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="495,890 492.06,882.074 499.8,883.042" fill="#2B373E"/></g>
+<g data-cell-id="e_tx_no"><path d="M 570,760 L 954,760 Q 960,760 960,766 L 960,900" fill="none" stroke="#9E2F2C" stroke-width="1.5" stroke-linecap="round"/><polygon points="960,900 956.1,892.5 963.9,892.5" fill="#9E2F2C"/></g>
+<g data-cell-id="e_db_inv"><path d="M 495,970 L 499.403,1014.03 Q 500,1020 494,1020 L 486,1020 Q 480,1020 480.744,1025.95 L 485,1060" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="485,1060 480.2,1053.04 487.94,1052.07" fill="#2B373E"/></g>
+<g data-cell-id="e_inv_end"><path d="M 485,1130 L 480.167,1304 Q 480,1310 486,1310 L 514,1310 Q 520,1310 519.917,1316 L 517.5,1490" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="517.5,1490 513.705,1482.45 521.504,1482.55" fill="#2B373E"/></g>
+<g data-cell-id="e_inc_check"><path d="M 960,960 L 960,994 Q 960,1000 959.403,1005.97 L 955,1050" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="955,1050 951.866,1042.15 959.627,1042.93" fill="#2B373E"/></g>
+<g data-cell-id="e_retry_yes"><path d="M 955,1150 L 959.256,1184.05 Q 960,1190 960,1196 L 960,1230" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="960,1230 956.1,1222.5 963.9,1222.5" fill="#2B373E"/></g>
+<g data-cell-id="e_wait_loop"><path d="M 1030,1260 L 1054,1260 Q 1060,1260 1060,1254 L 1060,606 Q 1060,600 1054,600 L 570,600" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="570,600 577.5,596.1 577.5,603.9" fill="#2B373E"/></g>
+<g data-cell-id="e_retry_no"><path d="M 880,1100 L 726,1100 Q 720,1100 719.769,1106 L 715,1230" fill="none" stroke="#9E2F2C" stroke-width="1.5" stroke-linecap="round"/><polygon points="715,1230 711.391,1222.36 719.185,1222.66" fill="#9E2F2C"/></g>
+<g data-cell-id="e_err_conna"><path d="M 715,1290 L 719.442,1325.53 Q 720,1330 715.5,1330 L 714.5,1330 Q 710,1330 710,1334.5 L 710,1370" fill="none" stroke="#9E2F2C" stroke-width="1.5" stroke-linecap="round"/><polygon points="710,1370 706.1,1362.5 713.9,1362.5" fill="#9E2F2C"/></g>
+<g data-cell-id="e_conna_end"><path d="M 350,1410 L 350,1514 Q 350,1520 356,1520 L 420,1520" fill="none" stroke="#2B373E" stroke-width="1.5" stroke-linecap="round"/><polygon points="420,1520 412.5,1523.9 412.5,1516.1" fill="#2B373E"/></g>
+<g data-cell-id="title_banner"><text text-anchor="start"><tspan x="124" y="50.45" font-size="16" font-weight="700" fill="#2B373E">Lưu đồ Xử lý Thanh toán &amp; Xuất Hóa đơn Điện tử</tspan><tspan x="124" dy="15.18" font-size="11" font-weight="400" fill="#526068">Chuẩn ISO 5807:1985 · Cơ chế thử lại (k &lt; 3, SLA &lt;= 3 giây)</tspan></text></g>
+<g data-cell-id="start"><rect x="420" y="130" width="130" height="60" rx="30" ry="30" fill="#EEF2F5" stroke="#2B373E" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="485" y="162.28" font-size="12" font-weight="700" fill="#1C2327">Bắt đầu</tspan></text></g>
+<g data-cell-id="input_order"><polygon points="414,270 590,270 566,350 390,350" fill="#EDF3F6" stroke="#395E73" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="490" y="295.72" font-size="12" font-weight="400" fill="#1C2327">Nhập thông tin đơn</tspan><tspan x="490" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">hàng &amp;</tspan><tspan x="490" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">phương thức thanh toán</tspan></text></g>
+<g data-cell-id="init_k"><polygon points="432,430 548,430 570,460 548,490 432,490 410,460" fill="#FFFFFF" stroke="#4A5860" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="490" y="454" font-size="12" font-weight="400" fill="#1C2327">Khởi tạo biến đếm</tspan><tspan x="490" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">thử lại k = 0</tspan></text></g>
+<g data-cell-id="call_gateway"><rect x="400" y="570" width="170" height="60" rx="2" fill="#EEF2F5" stroke="#2B373E" stroke-width="1.5" stroke-linejoin="round"/><line x1="417" y1="570" x2="417" y2="630" stroke="#2B373E" stroke-width="1.5"/><line x1="553" y1="570" x2="553" y2="630" stroke="#2B373E" stroke-width="1.5"/><text text-anchor="middle"><tspan x="485" y="585.72" font-size="12" font-weight="400" fill="#1C2327">Gọi dịch vụ cổng</tspan><tspan x="485" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">thanh toán định</tspan><tspan x="485" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">sẵn</tspan></text></g>
+<g data-cell-id="dec_tx_ok"><polygon points="490,710 570,760 490,810 410,760" fill="#FDF1EE" stroke="#AD4333" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="490" y="754" font-size="12" font-weight="700" fill="#1C2327">Giao dịch</tspan><tspan x="490" dy="16.56" font-size="12" font-weight="700" fill="#1C2327">thành công?</tspan></text></g>
+<g data-cell-id="save_db"><polygon points="442.5,890 570,890 547.5,970 420,970" fill="#EDF3F6" stroke="#395E73" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="495" y="915.72" font-size="12" font-weight="400" fill="#1C2327">Ghi giao dịch</tspan><tspan x="495" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">vào</tspan><tspan x="495" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">cơ sở dữ liệu</tspan></text></g>
+<g data-cell-id="issue_invoice"><path d="M 400,1060 H 570 V 1120 Q 527.5,1108 485,1120 T 400,1120 Z" fill="#FAF4EA" stroke="#8C5D2B" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="485" y="1089" font-size="12" font-weight="400" fill="#1C2327">Xuất hóa đơn điện tử</tspan><tspan x="485" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">(chứng từ)</tspan></text></g>
+<g data-cell-id="inc_k"><rect x="880" y="900" width="160" height="60" rx="2" ry="2" fill="#FFFFFF" stroke="#4A5860" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="960" y="924" font-size="12" font-weight="400" fill="#1C2327">Tăng biến đếm</tspan><tspan x="960" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">k = k + 1</tspan></text></g>
+<g data-cell-id="dec_k_lt_3"><polygon points="955,1050 1030,1100 955,1150 880,1100" fill="#FDF1EE" stroke="#AD4333" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="955" y="1094" font-size="12" font-weight="700" fill="#1C2327">Kiểm tra</tspan><tspan x="955" dy="16.56" font-size="12" font-weight="700" fill="#1C2327">k &lt; 3?</tspan></text></g>
+<g data-cell-id="wait_5s"><path d="M 890,1230 H 1000 A 30,30 0 0,1 1000,1290 H 890 Z" fill="#FAF4EA" stroke="#8C5D2B" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="960" y="1262.28" font-size="12" font-weight="400" fill="#1C2327">Chờ 5 giây</tspan></text></g>
+<g data-cell-id="show_error"><path d="M 642,1230 H 790 Q 817,1260 790,1290 H 642 L 620,1260 Z" fill="#EDF3F6" stroke="#395E73" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="715" y="1254" font-size="12" font-weight="400" fill="#1C2327">Hiển thị thông báo lỗi</tspan><tspan x="715" dy="16.56" font-size="12" font-weight="400" fill="#1C2327">lên màn hình</tspan></text></g>
+<g data-cell-id="conn_a_in"><circle cx="710" cy="1390" r="20" fill="#EEF2F5" stroke="#2B373E" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="710" y="1392.28" font-size="12" font-weight="400" fill="#1C2327">A</tspan></text></g>
+<g data-cell-id="conn_a_out"><circle cx="350" cy="1390" r="20" fill="#EEF2F5" stroke="#2B373E" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="350" y="1392.28" font-size="12" font-weight="400" fill="#1C2327">A</tspan></text></g>
+<g data-cell-id="end"><rect x="420" y="1490" width="130" height="60" rx="30" ry="30" fill="#EEF2F5" stroke="#2B373E" stroke-width="1.5" stroke-linejoin="round"/><text text-anchor="middle"><tspan x="485" y="1522.28" font-size="12" font-weight="700" fill="#1C2327">Kết thúc</tspan></text></g>
+<g data-cell-id="note_sla"><path d="M 326,570 H 340 V 630 H 326" fill="none" stroke="#526068" stroke-width="1.2"/><text text-anchor="start"><tspan x="146" y="594.5" font-size="11" font-weight="400" fill="#526068">SLA cổng thanh toán &lt;= 3</tspan><tspan x="146" dy="15.18" font-size="11" font-weight="400" fill="#526068">giây</tspan></text></g>
+<g class="edge-label"><rect x="476" y="820.5" width="28" height="19" rx="4" fill="#F8F6F2" stroke="none" opacity="0.94"/><text x="490" y="833.8" text-anchor="middle" font-size="11" font-weight="600" fill="#2B373E">Có</text></g>
+<g class="edge-label"><rect x="742.25" y="750.5" width="45.5" height="19" rx="4" fill="#F8F6F2" stroke="none" opacity="0.94"/><text x="765" y="763.8" text-anchor="middle" font-size="11" font-weight="600" fill="#9E2F2C">Không</text></g>
+<g class="edge-label"><rect x="943.5" y="1160.5" width="28" height="19" rx="4" fill="#F8F6F2" stroke="none" opacity="0.94"/><text x="957.5" y="1173.8" text-anchor="middle" font-size="11" font-weight="600" fill="#2B373E">Có</text></g>
+<g class="edge-label"><rect x="1015.55" y="1250.5" width="58.9" height="19" rx="4" fill="#F8F6F2" stroke="none" opacity="0.94"/><text x="1045" y="1263.8" text-anchor="middle" font-size="11" font-weight="600" fill="#2B373E">Thử lại</text></g>
+<g class="edge-label"><rect x="777.25" y="1090.5" width="45.5" height="19" rx="4" fill="#F8F6F2" stroke="none" opacity="0.94"/><text x="800" y="1103.8" text-anchor="middle" font-size="11" font-weight="600" fill="#9E2F2C">Không</text></g>
+</svg></div>
+</main>
+<script>
+const META=[{"id": "page-1", "name": "ISO-5807-Diagram"}];
+const stage=document.getElementById('stage');
+const pages=[...document.querySelectorAll('.page')];
+const view=pages.map(()=>({x:0,y:0,s:1}));
+let cur=0,hits=[],hi=-1;
+const tabs=document.getElementById('tabs');
+if(META.length>1)META.forEach((m,i)=>{
+  const b=document.createElement('button');b.textContent=m.name;
+  b.onclick=()=>show(i);tabs.appendChild(b);});
+function apply(){const v=view[cur];
+  pages[cur].style.transform=`translate(${v.x}px,${v.y}px) scale(${v.s})`;}
+function svgSize(i){const s=pages[i].querySelector('svg');
+  return[parseFloat(s.getAttribute('width'))||800,
+         parseFloat(s.getAttribute('height'))||600];}
+function fit(){const[w,h]=svgSize(cur),r=stage.getBoundingClientRect(),
+  s=Math.min((r.width-40)/w,(r.height-40)/h,4);
+  view[cur]={s,x:(r.width-w*s)/2,y:(r.height-h*s)/2};apply();}
+function show(i){cur=i;
+  pages.forEach((p,j)=>p.classList.toggle('on',j===i));
+  [...tabs.children].forEach((b,j)=>b.classList.toggle('on',j===i));
+  if(!pages[i].dataset.seen){pages[i].dataset.seen=1;fit();}else apply();
+  search();}
+stage.addEventListener('wheel',e=>{e.preventDefault();const v=view[cur],
+  r=stage.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,
+  k=Math.exp(-e.deltaY*0.0015),s=Math.min(Math.max(v.s*k,0.05),8);
+  v.x=mx-(mx-v.x)*s/v.s;v.y=my-(my-v.y)*s/v.s;v.s=s;apply();},{passive:false});
+let drag=null;
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('a'))return;
+  drag={x:e.clientX,y:e.clientY};stage.classList.add('drag');
+  stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{if(!drag)return;const v=view[cur];
+  v.x+=e.clientX-drag.x;v.y+=e.clientY-drag.y;
+  drag={x:e.clientX,y:e.clientY};apply();});
+stage.addEventListener('pointerup',()=>{drag=null;stage.classList.remove('drag');});
+function zoom(k){const v=view[cur],r=stage.getBoundingClientRect(),
+  mx=r.width/2,my=r.height/2,s=Math.min(Math.max(v.s*k,0.05),8);
+  v.x=mx-(mx-v.x)*s/v.s;v.y=my-(my-v.y)*s/v.s;v.s=s;apply();}
+document.getElementById('zin').onclick=()=>zoom(1.25);
+document.getElementById('zout').onclick=()=>zoom(0.8);
+document.getElementById('fit').onclick=fit;
+// Internal page links: any anchor whose target ends in #page-<id> switches tabs.
+document.addEventListener('click',e=>{const a=e.target.closest('a');
+  if(!a)return;const href=a.getAttribute('xlink:href')||a.getAttribute('href')||'';
+  const m=href.match(/#page-(.+)$/);if(!m)return;e.preventDefault();
+  const i=META.findIndex(p=>p.id===decodeURIComponent(m[1]));if(i>=0)show(i);},true);
+const q=document.getElementById('q'),hitEl=document.getElementById('hits');
+function search(){
+  hits.forEach(g=>g.classList.remove('hit','cursel'));hits=[];hi=-1;
+  const t=q.value.trim().toLowerCase();
+  if(t){
+    const all=[...pages[cur].querySelectorAll('g[data-cell-id]')]
+      .filter(g=>!['0','1'].includes(g.dataset.cellId))
+      .filter(g=>g.textContent.toLowerCase().includes(t));
+    hits=all.filter(g=>!all.some(o=>o!==g&&g.contains(o)));   // innermost only
+    hits.forEach(g=>g.classList.add('hit'));
+  }
+  hitEl.textContent=t?(hits.length+' kết quả'):'';}
+function centre(g){const v=view[cur],r=stage.getBoundingClientRect(),
+  b=g.getBoundingClientRect();
+  v.x+=r.left+r.width/2-(b.left+b.width/2);
+  v.y+=r.top+r.height/2-(b.top+b.height/2);apply();}
+q.addEventListener('input',search);
+q.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){q.value='';search();q.blur();}
+  if(e.key!=='Enter'||!hits.length)return;
+  if(hi>=0)hits[hi].classList.remove('cursel');
+  hi=(hi+1)%hits.length;hits[hi].classList.add('cursel');centre(hits[hi]);});
+show(0);
+</script></body></html>

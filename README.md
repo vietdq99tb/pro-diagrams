@@ -5,7 +5,7 @@
 
 **English** | [Tiếng Việt](./README.vi.md)
 
-An **Agent Skill** for designing, validating, and rendering publication-grade **ISO 5807:1985 process flowcharts**, **cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **data-verified quantitative charts**, and **mathematical function plots** — running **100% on the Python 3 standard library** with zero `pip install` or desktop GUI dependencies.
+An **Agent Skill** for designing, validating, and rendering publication-grade **ISO 5807:1985 process flowcharts**, **ISO 5807 cross-functional Swimlane SOPs & interactive Runbooks**, **topological graphs & CPM critical path networks**, **data-verified quantitative charts**, and **mathematical function plots** — running **100% on the Python 3 standard library** with zero `pip install` or desktop GUI dependencies.
 
 Built with the **Atelier Technical Warm** palette (WCAG AA/AAA verified) and **Open Sans** typography (full Vietnamese diacritic safety).
 
@@ -14,10 +14,10 @@ Built with the **Atelier Technical Warm** palette (WCAG AA/AAA verified) and **O
 ## Key Capabilities
 
 - **Smart Intake & Targeted Discovery (`references/discovery-and-elicitation.md`):** Triages prompt completeness automatically — builds immediately when a full spec is supplied, inspects attached source files first, or asks **1 concise round (2–5 high-leverage questions with recommended defaults)** when facts/numbers are missing. Never fabricates real business metrics, approval thresholds, or SLA values.
-- **Track 1 — Process Flowcharts, Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`):**
-  - All **23 ISO 5807:1985 & standard flowchart symbols** (`terminator`, `process`, `decision`, `data`, `predefined_process`, `document`, `multi_document`, `database`, `direct_data`, `stored_data`, `sequential_data`, `internal_storage`, `preparation`, `manual_operation`, `manual_input`, `on_page_connector`, `off_page_connector`, `loop_limit_start`/`end`, `delay`, `display`, `parallel_mode`, `annotation`).
-  - Deterministic JSON → uncompressed `.drawio` compiler (`iso5807_builder.py`) with 3-pass Sugiyama ordering, multi-lane Swimlanes (`TB` & `LR`), CPM auto-calculation (`ES/EF/LS/LF/TF`), and obstacle-free orthogonal routing (`score: 0`).
-  - **11-rule ISO 5807 & WCAG AA validator** (`validate_iso5807.py`) emitting structured `diagnostics[]` + `supportedFixes[]`.
+- **Track 1 — ISO 5807 Flowcharts, Cross-Functional Swimlanes & Structural Graphs (`.drawio` + `.svg` + `.html`):**
+  - All **23 ISO 5807:1985 & standard extension symbols** (`terminator`, `process`, `decision`, `data`, `predefined_process`, `document`, `multi_document`, `database`, `direct_data`, `stored_data`, `sequential_data`, `internal_storage`, `preparation`, `manual_operation`, `manual_input`, `on_page_connector`, `off_page_connector`, `loop_limit_start`/`end`, `delay`, `display`, `parallel_mode`, `annotation`) with verified `ISO 5807:1985 §9.x / §10.x` clause mappings.
+  - **Strict upfront JSON schema & DAG validation (`iso5807_builder.py`):** Rejects typos in node `type`, dangling edge `from`/`to` IDs, unknown `lane`/`slot`/`attach_to` IDs, and **cyclic CPM dependencies** before layout — while still routing retry loops cleanly in ISO 5807 flowcharts & swimlanes (`score: 0`).
+  - **12-rule ISO 5807:1985, Swimlane & WCAG AA validator (`validate_iso5807.py`):** Includes `E-ISO-DECISION-ENTRY` (`§9.2.2.4` single-entrance rule) and maps every diagnostic in `diagnostics[]` + `supportedFixes[]` to its exact standard clause.
   - Pure-Python `.drawio` → standalone `.svg` / interactive `.html` viewer (`drawio_render_svg.py`, `drawiohtml.py`), step-by-step **SOP Runbook** (`runbook.py`), bilingual layout-preserving translation (`relabel.py`), lossless Light↔Dark re-theming (`restyle.py`), Mermaid export (`drawio2mermaid.py`), and 10,446-shape Draw.io search (`shapesearch.py`).
 - **Track 2 — Quantitative Charts & Mathematical Function Plots (`HTML` + `SVG`):**
   - **6 quantitative chart types** (`bar`, `grouped_bar`, `horizontal_bar` with diverging negative baseline, `line`, `waterfall`, `sankey`) with KPI summary cards (`chart_builder.py`).
@@ -43,6 +43,18 @@ Includes matching dark mode (`tech-warm-dark`), accessible Okabe-Ito (`colorblin
 
 ---
 
+## Ready-to-Run Examples (`examples/`)
+
+Every example below includes the input `spec.json` plus pre-rendered, strictly validated outputs:
+
+| Example | Track | Input Spec | Verified Outputs |
+|---|---|---|---|
+| **Payment Retry & E-Invoice Flowchart** | ISO 5807:1985 (`TB`, retry loop + `A→A` connector) | [`spec.json`](examples/iso5807-payment-retry/spec.json) | [`.drawio`](examples/iso5807-payment-retry/payment_retry.drawio) · [`.svg`](examples/iso5807-payment-retry/payment_retry.svg) · [`.html`](examples/iso5807-payment-retry/payment_retry.html) (`0 err, 0 warn, score: 0`) |
+| **4-Lane R&D Procurement SOP** | ISO 5807 Cross-Functional Swimlane + Runbook | [`spec.json`](examples/swimlane-rd-procurement/spec.json) | [`.drawio`](examples/swimlane-rd-procurement/procurement.drawio) · [`.svg`](examples/swimlane-rd-procurement/procurement.svg) · [`.html`](examples/swimlane-rd-procurement/procurement.html) · [`_runbook.html`](examples/swimlane-rd-procurement/procurement_runbook.html) (`0 err, 0 warn, score: 0`) |
+| **2026 OpEx Variance Waterfall** | Quantitative Chart (`850 → 860 tr`, `data-*` verified) | [`spec.json`](examples/waterfall-opex-2026/spec.json) | [`.html`](examples/waterfall-opex-2026/waterfall_opex_2026.html) · [`.svg`](examples/waterfall-opex-2026/waterfall_opex_2026.svg) (`6 data-* marks PASS`) |
+
+---
+
 ## Installation
 
 ### Universal Agent Skills CLI (Claude Code, Cursor, Codex, Antigravity, Copilot, OpenCode)
@@ -51,7 +63,7 @@ Includes matching dark mode (`tech-warm-dark`), accessible Okabe-Ito (`colorblin
 npx skills add vietdq99tb/pro-diagrams
 ```
 
-### Manual Installation
+### Manual Installation / Offline `.skill` Archive
 
 ```bash
 git clone https://github.com/vietdq99tb/pro-diagrams.git
@@ -60,32 +72,34 @@ cp -r pro-diagrams/skills/pro-diagrams ~/.claude/skills/pro-diagrams
 # cp -r pro-diagrams/skills/pro-diagrams .agents/skills/pro-diagrams
 ```
 
-See [`skills/pro-diagrams/INSTALL_GUIDE.md`](skills/pro-diagrams/INSTALL_GUIDE.md) for Vietnamese setup and CLI recipes.
+For Claude Desktop or offline ZIP import, download `pro-diagrams.skill` from [GitHub Releases](https://github.com/vietdq99tb/pro-diagrams/releases) (or package locally via `(cd pro-diagrams/skills && zip -r ../../pro-diagrams.skill pro-diagrams)`). See [`skills/pro-diagrams/INSTALL_GUIDE.md`](skills/pro-diagrams/INSTALL_GUIDE.md) for Vietnamese setup and CLI recipes.
 
 ---
 
-## Quick CLI Usage & Testing
+## Quick Start & Testing
+
+Run directly from a fresh clone using the bundled examples:
 
 ```bash
-# Run all 26 unit & adversarial regression tests (Python 3 stdlib only)
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s skills/pro-diagrams/tests -v
+# 1. Run all 30 unit & adversarial regression tests (Python 3 stdlib only)
+PYTHONDONTWRITEBYTECODE=1 python3 -B -W error::ResourceWarning -m unittest discover -s skills/pro-diagrams/tests -v
 
-# Compile ISO 5807 flowchart / swimlane -> .drawio + .svg + interactive .html + SOP Runbook
-python3 skills/pro-diagrams/scripts/iso5807_builder.py spec.json \
-  -o flow.drawio \
-  --render-svg flow.svg \
-  --render-html flow.html \
-  --render-runbook flow_runbook.html
+# 2. Compile the 4-lane ISO 5807 Swimlane SOP -> .drawio + .svg + interactive .html + SOP Runbook
+python3 skills/pro-diagrams/scripts/iso5807_builder.py \
+  examples/swimlane-rd-procurement/spec.json \
+  -o /tmp/procurement.drawio \
+  --render-svg /tmp/procurement.svg \
+  --render-html /tmp/procurement.html \
+  --render-runbook /tmp/procurement_runbook.html
 
-# Validate strictly against ISO 5807:1985 + WCAG AA rules
-python3 skills/pro-diagrams/scripts/validate_iso5807.py flow.drawio --strict --score
+# 3. Validate strictly against all 12 ISO 5807:1985, Swimlane & WCAG AA rules
+python3 skills/pro-diagrams/scripts/validate_iso5807.py /tmp/procurement.drawio --strict --score
 
-# Build & verify a data-* honest quantitative chart
-python3 skills/pro-diagrams/scripts/chart_builder.py chart_spec.json -o chart.html --svg chart.svg
-python3 skills/pro-diagrams/scripts/chart_verify.py chart.html
-
-# Plot mathematical functions y = f(x) to standalone SVG/HTML
-python3 skills/pro-diagrams/scripts/plot_math_svg.py math_spec.json -o plot.svg --html plot.html
+# 4. Build & verify the 2026 OpEx Waterfall chart (data-* mathematical honesty)
+python3 skills/pro-diagrams/scripts/chart_builder.py \
+  examples/waterfall-opex-2026/spec.json \
+  -o /tmp/waterfall.html --svg /tmp/waterfall.svg
+python3 skills/pro-diagrams/scripts/chart_verify.py /tmp/waterfall.html
 ```
 
 ---
@@ -95,18 +109,23 @@ python3 skills/pro-diagrams/scripts/plot_math_svg.py math_spec.json -o plot.svg 
 ```text
 pro-diagrams/
 ├── README.md
+├── README.vi.md
 ├── LICENSE
 ├── .github/workflows/ci.yml
+├── examples/
+│   ├── iso5807-payment-retry/    # Runnable ISO 5807 flowchart (spec.json + .drawio + .svg + .html)
+│   ├── swimlane-rd-procurement/  # Runnable 4-lane ISO 5807 Swimlane SOP + interactive Runbook
+│   └── waterfall-opex-2026/      # Runnable data-* verified Waterfall chart (.html + .svg)
 └── skills/pro-diagrams/
     ├── SKILL.md                  # Main router (progressive disclosure)
     ├── INSTALL_GUIDE.md          # Vietnamese installation & CLI guide
     ├── LICENSE                   # MIT + Third-Party Notices
-    ├── data/                     # ISO 5807 catalog, theme tokens, 10,446 Draw.io shape index
+    ├── data/                     # ISO 5807 §9.x catalog, theme tokens, Draw.io index + APACHE-2.0.txt
     ├── references/               # 7 focused reference docs (incl. discovery-and-elicitation.md)
     ├── scripts/                  # 20 zero-dependency Python 3 stdlib scripts
     ├── styles/                   # JSON schema + 4 built-in presets
     ├── evals/                    # Benchmark prompt suite
-    └── tests/                    # 26 comprehensive unit & adversarial tests
+    └── tests/                    # 30 comprehensive unit & adversarial tests
 ```
 
 ---
@@ -114,4 +133,4 @@ pro-diagrams/
 ## License & Attributions
 
 Released under the **MIT License** ([`LICENSE`](./LICENSE)).
-Built upon the modular `.drawio` core of [`Agents365-ai/drawio-skill`](https://github.com/Agents365-ai/drawio-skill) (MIT), incorporating Apache-2.0 Draw.io shape index metadata (`jgraph/drawio-mcp`, see `skills/pro-diagrams/data/SHAPE-INDEX-NOTICE.md`), conceptual `data-*` chart honesty verification inspired by [`cathrynlavery/diagram-design`](https://github.com/cathrynlavery/diagram-design) (MIT), and structured `diagnostics[]`/`supportedFixes[]` linter contracts inspired by [`tt-a1i/archify`](https://github.com/tt-a1i/archify) (Apache-2.0).
+Built upon the modular `.drawio` core of [`Agents365-ai/drawio-skill`](https://github.com/Agents365-ai/drawio-skill) (MIT), incorporating Apache-2.0 Draw.io shape index metadata (`jgraph/drawio-mcp`, full verbatim license text bundled at [`skills/pro-diagrams/data/APACHE-2.0.txt`](skills/pro-diagrams/data/APACHE-2.0.txt) per Apache-2.0 §4(a), attribution at [`skills/pro-diagrams/data/SHAPE-INDEX-NOTICE.md`](skills/pro-diagrams/data/SHAPE-INDEX-NOTICE.md)), conceptual `data-*` chart honesty verification inspired by [`cathrynlavery/diagram-design`](https://github.com/cathrynlavery/diagram-design) (MIT), and structured `diagnostics[]`/`supportedFixes[]` linter contracts inspired by [`tt-a1i/archify`](https://github.com/tt-a1i/archify) (Apache-2.0).

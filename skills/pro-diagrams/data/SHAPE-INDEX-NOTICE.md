@@ -5,6 +5,9 @@
 which is generated from the official draw.io / diagrams.net client shape
 libraries. Both upstream sources are licensed under the **Apache License 2.0**.
 
+Per **Apache License 2.0 Section 4(a)**, the full verbatim license text is bundled
+alongside this index at [`APACHE-2.0.txt`](./APACHE-2.0.txt).
+
 - Each entry is `{style, w, h, title, tags, type}` for one palette shape.
 - 10,446 shapes spanning AWS, Azure, GCP, Cisco, Kubernetes, UML, BPMN, P&ID,
   electrical, flowchart, network, and the general shape sets.

@@ -39,7 +39,9 @@ Khi người dùng cần vẽ mạng công việc dự án, phân tích phụ th
 }
 ```
 
-> **Lưu ý kiểm định:** Với đồ thị cấu trúc (`topological-graph` hoặc `cpm`), chạy `validate.py diagram.drawio --score` (kiểm định cấu trúc hình học, không bắt buộc `E-ISO-START`/`E-ISO-END` của lưu đồ quy trình nếu các đỉnh là tác vụ/module).
+> **Lưu ý kiểm định & ràng buộc DAG cho CPM:**
+> - Với `kind: "cpm"`, đồ thị phụ thuộc **bắt buộc không có chu trình (DAG)**. Nếu có phụ thuộc vòng (ví dụ `A -> B` và `B -> A`), `iso5807_builder.py` sẽ **dừng biên dịch ngay và chỉ rõ chu trình cùng các công việc liên quan** thay vì xuất thời hạn sai lệch. (Các vòng lặp thử lại của quy trình hãy dùng `kind: "iso5807-flowchart"` hoặc `"swimlane"`.)
+> - Với đồ thị cấu trúc (`topological-graph` hoặc `cpm`), chạy `validate.py diagram.drawio --score` (kiểm định cấu trúc hình học, không bắt buộc `E-ISO-START`/`E-ISO-END` của lưu đồ quy trình nếu các đỉnh là tác vụ/module).
 
 ---
 
